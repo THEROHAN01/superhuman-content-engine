@@ -1,0 +1,29 @@
+# dependencies
+node_modules/
+.pnpm-store/
+
+# build output
+dist/
+*.tsbuildinfo
+coverage/
+
+# environment / secrets — only *.example files are tracked
+.env
+.env.*
+!.env.example
+!*.env.example
+*.pem
+*.key
+secrets/
+
+# runtime data (docker volumes are named, these are bind-mount escape hatches)
+data/
+infra/volumes/
+n8n/credentials/*.json
+!n8n/credentials/*.example.json
+
+# logs and scratch
+*.log
+tmp/
+.DS_Store
+.vitest/
