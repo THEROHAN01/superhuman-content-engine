@@ -110,3 +110,59 @@ describeDb('internal operations endpoints', () => {
     });
   });
 });
+
+describeDb('idea queueing response', () => {
+  let ctx: TestDb;
+  let app: FastifyInstance;
+
+  beforeAll(async () => {
+    ctx = await createTestDb('ideas_api');
+    app = await buildApp({
+      db: ctx.db,
+      env: parseEnv({
+        DATABASE_URL: process.env['TEST_DATABASE_URL']!,
+        NODE_ENV: 'test',
+        LOG_LEVEL: 'silent',
+      } as NodeJS.ProcessEnv),
+      logger: createLogger({ name: 'test', level: 'silent' }),
+      clock: fixedClock('2026-09-21T12:00:00.000Z'),
+    });
+  });
+
+  afterAll(async () => {
+    await app?.close();
+    await ctx?.close();
+  });
+
+  it('reports idea status after queueing, not before', async () => {
+    const captured = await app.inject({
+      method: 'POST',
+      url: '/capture',
+      payload: {
+        text: 'Mistake I made: I used Redis SETNX locks as a job queue, because locks expire and two workers can hold the same lock.',
+      },
+    });
+    const eventId = (captured.json() as { id: string }).id;
+
+    const processed = await app.inject({
+      method: 'POST',
+      url: `/learning-events/${eventId}/process`,
+    });
+    const atomId = (processed.json() as { content_atom_id: string }).content_atom_id;
+    await app.inject({ method: 'POST', url: `/content-atoms/${atomId}/build` });
+
+    const response = await app.inject({
+      method: 'POST',
+      url: `/content-atoms/${atomId}/ideas`,
+      payload: { queue: 1 },
+    });
+
+    const body = response.json() as {
+      queued: string[];
+      ideas: Array<{ id: string; status: string }>;
+    };
+    expect(body.queued).toHaveLength(1);
+    const queuedIdea = body.ideas.find((i) => i.id === body.queued[0]);
+    expect(queuedIdea?.status).toBe('queued');
+  });
+});

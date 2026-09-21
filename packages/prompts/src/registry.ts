@@ -1,4 +1,5 @@
 import { atomV1 } from './atom.v1.js';
+import { ideationV1 } from './ideation.v1.js';
 import { classifyV1 } from './classify.v1.js';
 
 /**
@@ -8,6 +9,7 @@ import { classifyV1 } from './classify.v1.js';
 export const PROMPT_REGISTRY = {
   'classify.v1': classifyV1,
   'atom.v1': atomV1,
+  'ideation.v1': ideationV1,
 } as const;
 
 export type PromptVersion = keyof typeof PROMPT_REGISTRY;
@@ -16,4 +18,5 @@ export type PromptVersion = keyof typeof PROMPT_REGISTRY;
 export const DEFAULT_PROMPT_VERSIONS = {
   classify: 'classify.v1',
   atom: 'atom.v1',
+  ideation: 'ideation.v1',
 } as const;

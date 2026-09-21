@@ -73,6 +73,85 @@ export const defaultMockHandlers: Record<string, MockHandler> = {
       angle_candidates: mistake ? ['failure_mode', 'insight'] : ['insight', 'mental_model'],
     };
   },
+
+  'ideation.v1': (request) => {
+    const body = extractNote(request.user);
+    const title = extractField(request.user, 'Title') ?? 'Untitled';
+    const topic = (extractField(request.user, 'Topic') ?? 'engineering').replace(/_/g, ' ');
+    const entities = (extractField(request.user, 'Entities') ?? '')
+      .split(',')
+      .map((e) => e.trim())
+      .filter((e) => e.length > 0 && e !== '(none)');
+    const section = (label: string): string | null => {
+      const match = new RegExp(`^${label}: (.+)$`, 'mi').exec(body);
+      return match?.[1]?.trim() ?? null;
+    };
+    const insight = section('Core insight') ?? title;
+    const principles = section('First principles');
+    const failure = section('Failure mode');
+    const personal = section('Personal observation');
+    const already = new Set(
+      [...request.user.matchAll(/^- (.+)$/gm)].map((m) => (m[1] as string).toLowerCase()),
+    );
+    const subject = title.replace(/\.$/, '');
+
+    // One idea per angle the atom can actually support - the same rule the prompt states.
+    const candidates = [
+      {
+        angle: 'insight' as const,
+        title: `Why ${subject}`.slice(0, 160),
+        rationale:
+          'States the mechanism directly, for a reader who wants the conclusion and the reason.',
+        audience: `engineers working with ${entities[0] ?? topic}`,
+        platforms: ['x' as const, 'linkedin' as const],
+        formats: ['x_post' as const, 'linkedin_post' as const],
+        hook: insight.slice(0, 200),
+        evidence_required: true,
+      },
+      principles
+        ? {
+            angle: 'mental_model' as const,
+            title: `A model for reasoning about ${topic}`.slice(0, 160),
+            rationale: 'Gives a reusable way to think about the problem rather than one fact.',
+            audience: `engineers learning ${topic}`,
+            platforms: ['linkedin' as const],
+            formats: ['linkedin_post' as const, 'carousel' as const],
+            hook: principles.slice(0, 200),
+            evidence_required: false,
+          }
+        : null,
+      failure
+        ? {
+            angle: 'failure_mode' as const,
+            title: `The failure this prevents: ${subject}`.slice(0, 160),
+            rationale:
+              'Shows the concrete way this goes wrong in production, which the insight alone does not.',
+            audience: 'engineers who have hit this in production',
+            platforms: ['x' as const],
+            formats: ['x_thread' as const],
+            hook: failure.slice(0, 200),
+            evidence_required: false,
+          }
+        : null,
+      personal
+        ? {
+            angle: 'project_story' as const,
+            title: `What I got wrong about ${topic}`.slice(0, 160),
+            rationale: 'First-hand experience the other angles cannot claim.',
+            audience: 'engineers early in their career',
+            platforms: ['instagram' as const],
+            formats: ['reel_script' as const],
+            hook: personal.slice(0, 200),
+            evidence_required: false,
+          }
+        : null,
+    ].filter((idea): idea is NonNullable<typeof idea> => idea !== null);
+
+    const ideas = candidates.filter((idea) => !already.has(idea.title.toLowerCase()));
+    // The contract requires at least one idea; when everything is already proposed, repeat the
+    // strongest one and let the caller's duplicate detection drop it.
+    return { ideas: ideas.length > 0 ? ideas : [candidates[0]] };
+  },
 };
 
 export interface MockLlmOptions {
