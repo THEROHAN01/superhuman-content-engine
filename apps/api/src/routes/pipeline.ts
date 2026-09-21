@@ -3,14 +3,18 @@ import { AppError } from '@sce/utils';
 import type { LlmAdapter, ResearchAdapter } from '@sce/adapters';
 import {
   buildContentAtom,
+  generateContentItems,
   generateIdeas,
   getContentAtom,
   processLearningEvent,
   processPendingLearningEvents,
+  getContentItem,
+  listItemsForIdea,
   queueBestIdeas,
   researchContentAtom,
   type ServiceContext,
 } from '@sce/core';
+import { CONTENT_FORMATS, type ContentFormat } from '@sce/schemas';
 import { requireCaptureAuth } from '../plugins/auth.js';
 
 /**
@@ -219,6 +223,83 @@ export const pipelineRoutes = (
           evidence_required: idea.evidence_required,
         })),
       });
+    },
+  );
+
+  /**
+   * Generates platform-native drafts for an idea. Regeneration creates a new version and
+   * supersedes the previous one; it never overwrites, so approval history stays meaningful.
+   */
+  app.post<{
+    Params: { id: string };
+    Body: { formats?: ContentFormat[]; regenerate?: boolean };
+  }>('/content-ideas/:id/generate', { preHandler: auth }, async (request, reply) => {
+    const formats = request.body?.formats;
+    if (formats && formats.some((format) => !CONTENT_FORMATS.includes(format))) {
+      throw AppError.permanent(
+        'E_INVALID_FORMAT',
+        `formats must be from: ${CONTENT_FORMATS.join(', ')}`,
+        400,
+      );
+    }
+
+    const result = await generateContentItems(ctx, request.params.id, {
+      llm: deps.llm,
+      ...(formats ? { formats } : {}),
+      regenerate: request.body?.regenerate === true,
+    });
+
+    if (!result.ok) {
+      const status =
+        result.error.code === 'E_IDEA_NOT_FOUND'
+          ? 404
+          : result.error.kind === 'permanent'
+            ? 422
+            : 503;
+      throw new AppError(result.error, status);
+    }
+
+    return reply.code(200).send({
+      content_idea_id: request.params.id,
+      generated: result.value.items.map(({ item, warnings, superseded_id }) => ({
+        id: item.id,
+        format: item.format,
+        platform: item.platform,
+        version: item.version,
+        status: item.status,
+        prompt_version: item.prompt_version,
+        model: item.model,
+        units: item.draft.units.length,
+        characters: item.draft.body.length,
+        warnings,
+        superseded_id,
+      })),
+      skipped: result.value.skipped,
+      failures: result.value.failures,
+    });
+  });
+
+  app.get<{ Params: { id: string } }>(
+    '/content-items/:id',
+    { preHandler: auth },
+    async (request, reply) => {
+      const item = await getContentItem(ctx, request.params.id);
+      if (!item) {
+        return reply.code(404).send({
+          error: { code: 'E_NOT_FOUND', message: `no content item ${request.params.id}` },
+          correlation_id: request.correlationId,
+        });
+      }
+      return item;
+    },
+  );
+
+  app.get<{ Params: { id: string } }>(
+    '/content-ideas/:id/items',
+    { preHandler: auth },
+    async (request) => {
+      const items = await listItemsForIdea(ctx, request.params.id);
+      return { items, count: items.length };
     },
   );
 };

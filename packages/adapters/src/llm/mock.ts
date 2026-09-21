@@ -1,4 +1,5 @@
 import { permanent, type Result } from '@sce/utils';
+import { generatorMockHandlers } from './mock-generators.js';
 import type { LlmAdapter, LlmRequest, LlmResponse } from './types.js';
 import {
   causalSentence,
@@ -152,6 +153,8 @@ export const defaultMockHandlers: Record<string, MockHandler> = {
     // strongest one and let the caller's duplicate detection drop it.
     return { ideas: ideas.length > 0 ? ideas : [candidates[0]] };
   },
+
+  ...generatorMockHandlers(),
 };
 
 export interface MockLlmOptions {
