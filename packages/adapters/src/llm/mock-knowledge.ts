@@ -210,3 +210,36 @@ export const extractNote = (prompt: string): string => {
   const match = /<<<NOTE\n([\s\S]*?)\nNOTE>>>/.exec(prompt);
   return (match?.[1] ?? prompt).trim();
 };
+
+/** Splits a note into sentences, for the mock's structural extraction. */
+export const sentences = (text: string): string[] =>
+  text
+    .replace(/\s+/g, ' ')
+    .split(/(?<=[.!?])\s+/)
+    .map((s) => s.trim())
+    .filter((s) => s.length > 0);
+
+/** The clause that explains *why*, if the note contains one. */
+export const causalSentence = (text: string): string | null =>
+  sentences(text).find((s) =>
+    /\b(because|since|so that|which means|the reason|turns out)\b/i.test(s),
+  ) ?? null;
+
+export const mistakeSentence = (text: string): string | null =>
+  sentences(text).find((s) =>
+    /\b(mistake|wrong|failed|broke|bug|gotcha|trap|pitfall|instead of)\b/i.test(s),
+  ) ?? null;
+
+export const firstPersonSentence = (text: string): string | null =>
+  sentences(text).find((s) => /\b(i|we|my|our)\b/i.test(s) && !/^today i learned/i.test(s)) ?? null;
+
+/** Extracts the ids of sources listed in a rendered prompt ("id=sd_..."). */
+export const extractSourceIds = (prompt: string): string[] => [
+  ...new Set([...prompt.matchAll(/\bid=(sd_[0-9a-z]+)/g)].map((m) => m[1] as string)),
+];
+
+/** Extracts "Title: ..." style fields the prompt states explicitly. */
+export const extractField = (prompt: string, label: string): string | null => {
+  const match = new RegExp(`^${label}:\\s*(.+)$`, 'mi').exec(prompt);
+  return match?.[1]?.trim() ?? null;
+};

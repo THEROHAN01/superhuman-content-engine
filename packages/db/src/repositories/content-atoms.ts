@@ -95,7 +95,9 @@ export const updateAtom = async (
        body = COALESCE($3::jsonb, body),
        evidence_status = COALESCE($4, evidence_status),
        confidence = COALESCE($5, confidence),
-       error = CASE WHEN $6::text IS NULL THEN error ELSE $6 END,
+       -- 'error' is cleared by passing an empty string, so a successful rebuild does not keep
+       -- the previous failure visible, while omitting the field leaves it untouched.
+       error = CASE WHEN $6::text IS NULL THEN error WHEN $6 = '' THEN NULL ELSE $6 END,
        atomized_at = COALESCE($7, atomized_at)
      WHERE id = $1
      RETURNING ${COLUMNS}`,

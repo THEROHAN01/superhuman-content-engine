@@ -1,11 +1,17 @@
 import { permanent, type Result } from '@sce/utils';
 import type { LlmAdapter, LlmRequest, LlmResponse } from './types.js';
 import {
+  causalSentence,
+  extractField,
   extractNote,
+  extractSourceIds,
+  firstPersonSentence,
   inferContentWorthiness,
   inferEntities,
   inferKind,
   inferTopics,
+  mistakeSentence,
+  sentences,
 } from './mock-knowledge.js';
 
 /**
@@ -30,6 +36,41 @@ export const defaultMockHandlers: Record<string, MockHandler> = {
       content_worthy: worthiness.worthy,
       content_worthiness_reason: worthiness.reason,
       confidence: worthiness.worthy ? 0.72 : 0.55,
+    };
+  },
+
+  'atom.v1': (request) => {
+    const noteText = extractNote(request.user);
+    const title = extractField(request.user, 'Title') ?? sentences(noteText)[0] ?? noteText;
+    const parts = sentences(noteText);
+    const why = causalSentence(noteText);
+    const mistake = mistakeSentence(noteText);
+    const personal = firstPersonSentence(noteText);
+    const sourceIds = extractSourceIds(request.user);
+
+    // The mock extracts structure from the note; it never adds knowledge of its own, which is
+    // exactly the constraint the real prompt places on a model.
+    const coreInsight = parts[0] ?? noteText;
+    const firstPrinciples = why ?? (parts.slice(1).join(' ') || coreInsight);
+
+    return {
+      problem: title.endsWith('?') ? title : `Why does this matter: ${title}?`,
+      core_insight: coreInsight,
+      first_principles: firstPrinciples,
+      example: parts.length > 2 ? (parts[2] ?? null) : null,
+      implementation_details: null,
+      failure_mode: mistake,
+      mental_model: null,
+      personal_observation: personal,
+      claims: [
+        {
+          claim: coreInsight.slice(0, 500),
+          // Supported only when a source was actually supplied; otherwise it stays reviewable.
+          status: sourceIds.length > 0 ? 'supported' : 'needs_review',
+          source_ids: sourceIds.slice(0, 3),
+        },
+      ],
+      angle_candidates: mistake ? ['failure_mode', 'insight'] : ['insight', 'mental_model'],
     };
   },
 };

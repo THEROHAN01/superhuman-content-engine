@@ -2,6 +2,8 @@ import type { FastifyInstance } from 'fastify';
 import { AppError } from '@sce/utils';
 import type { LlmAdapter, ResearchAdapter } from '@sce/adapters';
 import {
+  buildContentAtom,
+  getContentAtom,
   processLearningEvent,
   processPendingLearningEvents,
   researchContentAtom,
@@ -106,6 +108,58 @@ export const pipelineRoutes = (
           relevance: s.relevance,
         })),
       });
+    },
+  );
+
+  /**
+   * Builds the canonical atom body. A model failure, a fabricated citation, or an incomplete body
+   * leaves the atom in `failed` with the reason recorded - it is never stored as ready.
+   */
+  app.post<{ Params: { id: string }; Body: { force?: boolean } }>(
+    '/content-atoms/:id/build',
+    { preHandler: auth },
+    async (request, reply) => {
+      const result = await buildContentAtom(ctx, request.params.id, {
+        llm: deps.llm,
+        force: request.body?.force === true,
+      });
+
+      if (!result.ok) {
+        const status =
+          result.error.code === 'E_ATOM_NOT_FOUND'
+            ? 404
+            : result.error.kind === 'permanent'
+              ? 422
+              : 503;
+        throw new AppError(result.error, status);
+      }
+
+      const value = result.value;
+      return reply.code(200).send({
+        content_atom_id: value.atom.id,
+        learning_event_id: value.atom.learning_event_id,
+        status: value.atom.status,
+        unchanged: value.unchanged,
+        evidence_status: value.evidence_status,
+        unsupported_claims: value.unsupported_claims,
+        atom: value.atom,
+      });
+    },
+  );
+
+  /** Reads an atom with its evidence - the provenance view. */
+  app.get<{ Params: { id: string } }>(
+    '/content-atoms/:id',
+    { preHandler: auth },
+    async (request, reply) => {
+      const atom = await getContentAtom(ctx, request.params.id);
+      if (!atom) {
+        return reply.code(404).send({
+          error: { code: 'E_NOT_FOUND', message: `no content atom ${request.params.id}` },
+          correlation_id: request.correlationId,
+        });
+      }
+      return atom;
     },
   );
 };

@@ -75,3 +75,41 @@ Topics: `algorithms`, `system_design`, `backend`, `databases`, `distributed_syst
 
 Both lists live in `packages/schemas/src/enums.ts` and are mirrored by SQL CHECK constraints, with
 an enum-parity test binding the two together.
+
+## 5. Canonical Content Atom (Milestone 08)
+
+`POST /content-atoms/:id/build` turns the shell into the object every format is derived from:
+
+| Field                                                               | Meaning                                                                                                |
+| ------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
+| `problem`                                                           | the question this learning answers                                                                     |
+| `core_insight`                                                      | the single most useful takeaway                                                                        |
+| `first_principles`                                                  | why it is true, not just what to do                                                                    |
+| `example`, `implementation_details`, `failure_mode`, `mental_model` | filled only when the note supports them, `null` otherwise                                              |
+| `personal_observation`                                              | only what the note states in the first person - never synthesized                                      |
+| `claims[]`                                                          | each factual statement with `supported` / `needs_review` / `unsupported` and the source ids backing it |
+| `angle_candidates[]`                                                | content angles this atom could support                                                                 |
+
+### What the build step refuses to do
+
+- **Fabricated citations.** A claim citing a source id the atom does not own fails the build with
+  `E_ATOM_INVALID_CITATION`; the atom is stored as `failed` with the offending id in its error.
+- **Unbacked "supported" claims.** A claim labelled `supported` with no source id is downgraded to
+  `needs_review` before storage.
+- **Evidence upgrades.** The final `evidence_status` is the _weaker_ of what research established
+  and what the claims justify, so synthetic (mock) sources can never become `supported`, and
+  `research_failed` / `not_required` pass through untouched.
+- **Half-built atoms.** The body must satisfy the stricter `readyContentAtom` contract before the
+  atom is marked `ready`; otherwise it fails with `E_ATOM_INCOMPLETE` and the previous body stays.
+
+### Lifecycle
+
+```
+learning_event(received) --process--> classified --shell--> content_atom(draft)
+content_atom(draft) --research--> enriched   (+ source_documents, evidence_status)
+content_atom(enriched) --build--> ready      (body filled, claims graded, atomized_at set)
+                        \\-> failed (error recorded; re-runnable, and a successful rebuild clears it)
+```
+
+Rebuilding a `ready` atom is a no-op unless `{"force": true}` is passed. One learning event always
+has exactly one atom, enforced by a unique constraint.
