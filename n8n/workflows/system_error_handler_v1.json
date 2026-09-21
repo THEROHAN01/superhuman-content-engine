@@ -1,0 +1,131 @@
+{
+  "name": "system_error_handler_v1",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "cd20d9a5-3bd5-f9b2-a76f-e1083942231e",
+      "name": "Execution failed",
+      "type": "n8n-nodes-base.errorTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Normalize an n8n execution failure into the API's error-report contract.\nconst e = $json.execution ?? {};\nconst wf = $json.workflow ?? {};\nconst lastNode = e.lastNodeExecuted ?? null;\nconst message = (e.error?.message ?? 'workflow execution failed').slice(0, 4000);\nreturn [{\n  json: {\n    workflow: wf.name ?? 'unknown_workflow',\n    step: lastNode,\n    kind: 'transient',\n    code: 'E_N8N_EXECUTION_FAILED',\n    message,\n    correlation_id: e.id ? `cor_n8n_${e.id}` : undefined,\n    details: { execution_url: e.url ?? null, mode: e.mode ?? null, retry_of: e.retryOf ?? null },\n  },\n}];"
+      },
+      "id": "e830ec65-3200-8d65-0fb9-9a841b25b366",
+      "name": "Build error report",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        220,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.SCE_API_BASE_URL }}/internal/errors",
+        "options": {
+          "timeout": 15000,
+          "response": {
+            "response": {
+              "neverError": false
+            }
+          }
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json) }}"
+      },
+      "id": "d0b2cff7-1704-2f16-c064-cf27612b52e4",
+      "name": "Record error",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        460,
+        0
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000,
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {},
+      "id": "73c20ded-5edc-e7ee-6ad0-b8a6824f30b4",
+      "name": "Reported",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        700,
+        -60
+      ]
+    },
+    {
+      "parameters": {},
+      "id": "eb61a915-519e-edaa-323a-9f2d9472c3bb",
+      "name": "Reporting failed",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        700,
+        100
+      ]
+    }
+  ],
+  "connections": {
+    "Execution failed": {
+      "main": [
+        [
+          {
+            "node": "Build error report",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build error report": {
+      "main": [
+        [
+          {
+            "node": "Record error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Record error": {
+      "main": [
+        [
+          {
+            "node": "Reported",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Reporting failed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "saveManualExecutions": true
+  },
+  "tags": [],
+  "meta": {
+    "templateId": "sce"
+  }
+}

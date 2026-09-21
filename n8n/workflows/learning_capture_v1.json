@@ -1,0 +1,148 @@
+{
+  "name": "learning_capture_v1",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "sce/learning/capture",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "6a312813-15df-cbb7-7c8a-84d3413bd92d",
+      "name": "Capture webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        0
+      ],
+      "webhookId": "226868cd-6555-e306-b9cb-d1f7832860b7"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Accept {text,...} from any caller; guarantee a correlation id exists before anything else.\nconst body = $json.body ?? $json;\nconst correlationId = body.correlation_id\n  || $json.headers?.['x-correlation-id']\n  || `cor_n8n_${$execution.id}`;\nif (!body.text || String(body.text).trim().length < 10) {\n  throw new Error('text is required and must be at least 10 characters');\n}\nreturn [{ json: {\n  text: String(body.text),\n  title: body.title,\n  source: body.source ?? 'http',\n  external_id: body.external_id,\n  tags: body.tags ?? [],\n  context: body.context ?? {},\n  correlation_id: correlationId,\n} }];"
+      },
+      "id": "2fc84dec-1a04-7c70-dbb8-182d28c96426",
+      "name": "Normalize input",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        220,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.SCE_API_BASE_URL }}/capture",
+        "options": {
+          "timeout": 15000,
+          "response": {
+            "response": {
+              "neverError": false
+            }
+          }
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json) }}"
+      },
+      "id": "a846a118-b0c3-172d-9d4b-9ea0c83aaf92",
+      "name": "POST /capture",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        460,
+        0
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000,
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify($json) }}"
+      },
+      "id": "05bd5660-1113-0459-fe78-4acc9ca69a90",
+      "name": "Respond",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        720,
+        -60
+      ]
+    },
+    {
+      "parameters": {
+        "workflowId": "system_error_handler_v1",
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {}
+        }
+      },
+      "id": "3c67b18b-2d7b-c376-692a-307f3c271946",
+      "name": "Report failure",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "position": [
+        720,
+        120
+      ]
+    }
+  ],
+  "connections": {
+    "Capture webhook": {
+      "main": [
+        [
+          {
+            "node": "Normalize input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize input": {
+      "main": [
+        [
+          {
+            "node": "POST /capture",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "POST /capture": {
+      "main": [
+        [
+          {
+            "node": "Respond",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Report failure",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "saveManualExecutions": true,
+    "callerPolicy": "workflowsFromSameOwner",
+    "errorWorkflow": "system_error_handler_v1"
+  },
+  "tags": [],
+  "meta": {
+    "templateId": "sce"
+  }
+}

@@ -1,0 +1,84 @@
+{
+  "name": "test_webhook_v1",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "sce/test/echo",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "01c8ad4a-f849-2125-222f-7f2c8d95edb7",
+      "name": "Test webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        0
+      ],
+      "webhookId": "e4bb6738-286e-11b7-032d-2fab6b9f0ea6"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Smoke test: proves the webhook path works and that correlation ids are threaded.\nconst correlationId = $json.body?.correlation_id || `cor_n8n_${$execution.id}`;\nreturn [{ json: { ok: true, received: $json.body ?? null, correlation_id: correlationId } }];"
+      },
+      "id": "63155dee-496b-0abf-9d70-070a9e037cd0",
+      "name": "Echo with correlation id",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        240,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify($json) }}"
+      },
+      "id": "05bd5660-1113-0459-fe78-4acc9ca69a90",
+      "name": "Respond",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        480,
+        0
+      ]
+    }
+  ],
+  "connections": {
+    "Test webhook": {
+      "main": [
+        [
+          {
+            "node": "Echo with correlation id",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Echo with correlation id": {
+      "main": [
+        [
+          {
+            "node": "Respond",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "saveManualExecutions": true,
+    "callerPolicy": "workflowsFromSameOwner",
+    "errorWorkflow": "system_error_handler_v1"
+  },
+  "tags": [],
+  "meta": {
+    "templateId": "sce"
+  }
+}

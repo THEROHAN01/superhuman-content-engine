@@ -5,6 +5,7 @@ import { correlationPlugin } from './plugins/correlation.js';
 import { errorHandlerPlugin } from './plugins/error-handler.js';
 import { healthRoutes } from './routes/health.js';
 import { captureRoutes } from './routes/capture.js';
+import { internalRoutes } from './routes/internal.js';
 
 /**
  * Builds the HTTP surface. The context is injected so tests can run the real routes against a
@@ -33,6 +34,7 @@ export const buildApp = async (ctx: ServiceContext): Promise<FastifyInstance> =>
 
   healthRoutes(app, ctx);
   captureRoutes(app, ctx);
+  internalRoutes(app, ctx);
 
   return app;
 };

@@ -1,0 +1,105 @@
+{
+  "name": "test_db_connectivity_v1",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "96bfc461-817e-1b28-a0d4-be4c045496a7",
+      "name": "Run manually",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT count(*)::int AS learning_events, now() AS checked_at FROM learning_events",
+        "options": {}
+      },
+      "id": "e7b7a1cf-1586-030e-afe6-3d7200c88be4",
+      "name": "Count learning events",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.4,
+      "position": [
+        240,
+        0
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "sce_postgres_local",
+          "name": "sce_postgres_local"
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000,
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {},
+      "id": "c2f9b7b4-897f-03f9-4abf-92294c9ca46f",
+      "name": "Connected",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        480,
+        -60
+      ]
+    },
+    {
+      "parameters": {},
+      "id": "202caaa8-7055-b40a-1dfd-11ac8219f776",
+      "name": "Connection failed",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        480,
+        100
+      ]
+    }
+  ],
+  "connections": {
+    "Run manually": {
+      "main": [
+        [
+          {
+            "node": "Count learning events",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Count learning events": {
+      "main": [
+        [
+          {
+            "node": "Connected",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Connection failed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "saveManualExecutions": true,
+    "callerPolicy": "workflowsFromSameOwner",
+    "errorWorkflow": "system_error_handler_v1"
+  },
+  "tags": [],
+  "meta": {
+    "templateId": "sce"
+  }
+}

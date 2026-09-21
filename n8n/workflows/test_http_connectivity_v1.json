@@ -1,0 +1,106 @@
+{
+  "name": "test_http_connectivity_v1",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "96bfc461-817e-1b28-a0d4-be4c045496a7",
+      "name": "Run manually",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $env.SCE_API_BASE_URL }}/health/live",
+        "options": {
+          "timeout": 15000,
+          "response": {
+            "response": {
+              "neverError": false
+            }
+          }
+        }
+      },
+      "id": "c7bf295e-e515-f7cf-935d-c66701f4aaa3",
+      "name": "GET /health/live",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        240,
+        0
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000,
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {},
+      "id": "98cfccfa-365a-a123-0bd9-d027583548b3",
+      "name": "API reachable",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        480,
+        -60
+      ]
+    },
+    {
+      "parameters": {},
+      "id": "848671d4-39be-e695-a062-89a7ac7682fa",
+      "name": "API unreachable",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        480,
+        100
+      ]
+    }
+  ],
+  "connections": {
+    "Run manually": {
+      "main": [
+        [
+          {
+            "node": "GET /health/live",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "GET /health/live": {
+      "main": [
+        [
+          {
+            "node": "API reachable",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "API unreachable",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "saveManualExecutions": true,
+    "callerPolicy": "workflowsFromSameOwner",
+    "errorWorkflow": "system_error_handler_v1"
+  },
+  "tags": [],
+  "meta": {
+    "templateId": "sce"
+  }
+}

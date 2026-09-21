@@ -1,0 +1,221 @@
+{
+  "name": "system_health_check_v1",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes",
+              "minutesInterval": 15
+            }
+          ]
+        }
+      },
+      "id": "c7bafbc9-7b09-620d-0881-ae18e98f437e",
+      "name": "Every 15 minutes",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        0,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $env.SCE_API_BASE_URL }}/health/ready",
+        "options": {
+          "timeout": 15000,
+          "response": {
+            "response": {
+              "neverError": false
+            }
+          }
+        }
+      },
+      "id": "eab42327-183f-2028-766a-e5c24a95c8fe",
+      "name": "GET /health/ready",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        240,
+        0
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000,
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "version": 2
+          },
+          "combinator": "and",
+          "conditions": [
+            {
+              "id": "ready",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              },
+              "leftValue": "={{ $json.status }}",
+              "rightValue": "ready"
+            }
+          ]
+        }
+      },
+      "id": "936a7389-ceb4-56c9-4f1f-b8894bcad5a3",
+      "name": "Healthy?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        480,
+        0
+      ]
+    },
+    {
+      "parameters": {},
+      "id": "80ea156e-1b83-f493-d684-644e53a139c2",
+      "name": "Healthy",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        720,
+        -80
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.SCE_API_BASE_URL }}/internal/errors",
+        "options": {
+          "timeout": 15000,
+          "response": {
+            "response": {
+              "neverError": false
+            }
+          }
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({workflow: \"system_health_check_v1\", step: \"health\", kind: \"transient\", code: \"E_HEALTH_DEGRADED\", message: \"readiness probe reported \" + ($json.status ?? \"unreachable\"), details: $json.checks ?? {}}) }}"
+      },
+      "id": "8d24526a-c9d9-cd72-31ec-4e962f2dac58",
+      "name": "Report degraded",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        720,
+        120
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000,
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {},
+      "id": "813963ed-f944-1e36-dbe6-4d70681d359a",
+      "name": "Degradation recorded",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        980,
+        40
+      ]
+    },
+    {
+      "parameters": {},
+      "id": "c1325098-31cb-1551-e40c-ebf762f57bd0",
+      "name": "Could not record degradation",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        980,
+        200
+      ]
+    }
+  ],
+  "connections": {
+    "Every 15 minutes": {
+      "main": [
+        [
+          {
+            "node": "GET /health/ready",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "GET /health/ready": {
+      "main": [
+        [
+          {
+            "node": "Healthy?",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Report degraded",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Healthy?": {
+      "main": [
+        [
+          {
+            "node": "Healthy",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Report degraded",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Report degraded": {
+      "main": [
+        [
+          {
+            "node": "Degradation recorded",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Could not record degradation",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "saveManualExecutions": true,
+    "callerPolicy": "workflowsFromSameOwner",
+    "errorWorkflow": "system_error_handler_v1"
+  },
+  "tags": [],
+  "meta": {
+    "templateId": "sce"
+  }
+}
