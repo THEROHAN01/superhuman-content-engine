@@ -1,0 +1,81 @@
+name: CI
+
+on:
+  push:
+    branches: ['**']
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  # CI never talks to a real provider and never publishes.
+  PUBLISH_MODE: dry_run
+  LLM_PROVIDER: mock
+  RESEARCH_PROVIDER: mock
+  PUBLISHING_PROVIDER: mock
+  TELEGRAM_PROVIDER: mock
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:16.15-alpine
+        env:
+          POSTGRES_USER: sce
+          POSTGRES_PASSWORD: sce
+          POSTGRES_DB: sce_test
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U sce -d sce_test"
+          --health-interval 10s --health-timeout 5s --health-retries 10
+      redis:
+        image: redis:7.4-alpine
+        ports: ['6379:6379']
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s --health-timeout 3s --health-retries 10
+    env:
+      TEST_DATABASE_URL: postgres://sce:sce@localhost:5432/sce_test
+      DATABASE_URL: postgres://sce:sce@localhost:5432/sce_test
+      REDIS_URL: redis://localhost:6379
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm typecheck
+      - run: pnpm lint
+      - run: pnpm test
+      - run: pnpm build
+
+  compose:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate compose configuration
+        run: docker compose --env-file infra/.env.example -f infra/docker-compose.yml --profile app config >/dev/null
+      - name: Build application image
+        run: docker build -f infra/api.Dockerfile -t sce-api:ci .
+
+  secrets:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - name: Scan tracked files for credential-shaped literals
+        run: |
+          if git grep -nIE '(sk-[A-Za-z0-9]{20,}|ghp_[A-Za-z0-9]{30,}|xox[baprs]-[A-Za-z0-9-]{10,}|-----BEGIN (RSA |OPENSSH |EC )?PRIVATE KEY-----)' \
+               -- ':!docs/build-plan.md' ':!*.test.ts' ':!.claude/hooks/*'; then
+            echo "::error::credential-shaped literal found in tracked files"
+            exit 1
+          fi
+          echo "no credential-shaped literals found"

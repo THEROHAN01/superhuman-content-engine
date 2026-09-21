@@ -13,23 +13,23 @@ gate from the first line of application code.
 
 ## TASKS COMPLETED
 
-| # | Atomic task | Result |
-| --- | --- | --- |
-| 1 | List repository root and all source/config/test files | done - repository was empty (`git log` had no commits, `ls -a` showed only `.git`) |
-| 2 | Identify language, package manager, runtime, build system, scripts | done - none existed; chosen and recorded in `docs/reconnaissance.md` section 2 |
-| 3 | Inspect Docker/Compose/env/CI/database/deployment files | done - none existed; host capabilities audited instead (section 3) |
-| 4 | Inspect Git history for architectural intent | done - no commits existed before this session |
-| 5 | Search for existing integrations | done - none |
-| 6 | Search for TODO/FIXME markers | done - none (empty tree) |
-| 7 | Identify existing content schema / prompts / pipeline code | done - none |
-| 8 | Document external dependencies and credential needs | done - `docs/reconnaissance.md` section 5 |
-| 9 | Identify what can be reused | done - section 6 (nothing in-repo; host PostgreSQL 16 and Redis 7 reused for real tests) |
-| 10 | Create `docs/reconnaissance.md` | done |
-| 11 | Create `docs/architecture.md` | done |
-| 12 | List files expected in later milestones | done - `docs/file-plan.md` |
-| 13 | Risk register incl. dependency, credential, rate-limit, duplication, failure-mode | done - `docs/risk-register.md` (13 risks, all five categories present) |
-| 14 | Define local-dev assumptions and sandbox/test-account policy | done - `docs/reconnaissance.md` section 7 + ADR-004/005/006 |
-| 15 | Do not modify application behavior | done - there is no application behavior yet; only scaffolding and docs were added |
+| #   | Atomic task                                                                       | Result                                                                                   |
+| --- | --------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------- |
+| 1   | List repository root and all source/config/test files                             | done - repository was empty (`git log` had no commits, `ls -a` showed only `.git`)       |
+| 2   | Identify language, package manager, runtime, build system, scripts                | done - none existed; chosen and recorded in `docs/reconnaissance.md` section 2           |
+| 3   | Inspect Docker/Compose/env/CI/database/deployment files                           | done - none existed; host capabilities audited instead (section 3)                       |
+| 4   | Inspect Git history for architectural intent                                      | done - no commits existed before this session                                            |
+| 5   | Search for existing integrations                                                  | done - none                                                                              |
+| 6   | Search for TODO/FIXME markers                                                     | done - none (empty tree)                                                                 |
+| 7   | Identify existing content schema / prompts / pipeline code                        | done - none                                                                              |
+| 8   | Document external dependencies and credential needs                               | done - `docs/reconnaissance.md` section 5                                                |
+| 9   | Identify what can be reused                                                       | done - section 6 (nothing in-repo; host PostgreSQL 16 and Redis 7 reused for real tests) |
+| 10  | Create `docs/reconnaissance.md`                                                   | done                                                                                     |
+| 11  | Create `docs/architecture.md`                                                     | done                                                                                     |
+| 12  | List files expected in later milestones                                           | done - `docs/file-plan.md`                                                               |
+| 13  | Risk register incl. dependency, credential, rate-limit, duplication, failure-mode | done - `docs/risk-register.md` (13 risks, all five categories present)                   |
+| 14  | Define local-dev assumptions and sandbox/test-account policy                      | done - `docs/reconnaissance.md` section 7 + ADR-004/005/006                              |
+| 15  | Do not modify application behavior                                                | done - there is no application behavior yet; only scaffolding and docs were added        |
 
 ## FILES CREATED
 
@@ -43,7 +43,7 @@ package skeletons for `apps/{api,workers,bot}` and `packages/{utils,schemas,db,p
 
 ## FILES MODIFIED
 
-`.claude/hooks/guard-bash.sh` - rewritten after testing showed it blocked heredoc *documentation*
+`.claude/hooks/guard-bash.sh` - rewritten after testing showed it blocked heredoc _documentation_
 that merely mentioned a dangerous command; it now strips heredoc bodies and anchors patterns to
 statement position.
 
@@ -95,13 +95,13 @@ No application behavior existed to change.
 
 ## ACCEPTANCE CRITERIA
 
-| Criterion | Evidence |
-| --- | --- |
-| Repository inventory is documented | `docs/reconnaissance.md` sections 1-3 |
-| Current and target architecture documented | `docs/reconnaissance.md`, `docs/architecture.md` |
-| External dependencies and credential requirements documented | `docs/reconnaissance.md` section 5 |
-| No application feature changed unnecessarily | no application existed; diff is docs + scaffold only |
-| Next milestone explainable without guessing | `docs/file-plan.md` row 02 lists the exact files and `docs/build-plan.md` holds its 19 atomic tasks |
+| Criterion                                                    | Evidence                                                                                            |
+| ------------------------------------------------------------ | --------------------------------------------------------------------------------------------------- |
+| Repository inventory is documented                           | `docs/reconnaissance.md` sections 1-3                                                               |
+| Current and target architecture documented                   | `docs/reconnaissance.md`, `docs/architecture.md`                                                    |
+| External dependencies and credential requirements documented | `docs/reconnaissance.md` section 5                                                                  |
+| No application feature changed unnecessarily                 | no application existed; diff is docs + scaffold only                                                |
+| Next milestone explainable without guessing                  | `docs/file-plan.md` row 02 lists the exact files and `docs/build-plan.md` holds its 19 atomic tasks |
 
 ## RECOMMENDED NEXT MILESTONE
 
