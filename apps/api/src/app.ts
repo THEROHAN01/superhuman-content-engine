@@ -4,14 +4,17 @@ import type { ServiceContext } from '@sce/core';
 import {
   createLlmAdapter,
   createResearchAdapter,
+  createTelegramAdapterFor,
   type LlmAdapter,
   type ResearchAdapter,
+  type TelegramAdapter,
 } from '@sce/adapters';
 import { correlationPlugin } from './plugins/correlation.js';
 import { errorHandlerPlugin } from './plugins/error-handler.js';
 import { healthRoutes } from './routes/health.js';
 import { captureRoutes } from './routes/capture.js';
 import { pipelineRoutes } from './routes/pipeline.js';
+import { telegramRoutes } from './routes/telegram.js';
 import { internalRoutes } from './routes/internal.js';
 
 /**
@@ -22,6 +25,7 @@ export interface AppDeps {
   /** Injected so tests can drive the pipeline with a failing or scripted provider. */
   llm?: LlmAdapter;
   research?: ResearchAdapter;
+  telegram?: TelegramAdapter;
 }
 
 export const buildApp = async (
@@ -30,6 +34,7 @@ export const buildApp = async (
 ): Promise<FastifyInstance> => {
   const llm = deps.llm ?? createLlmAdapter(ctx.env);
   const research = deps.research ?? createResearchAdapter(ctx.env);
+  const telegram = deps.telegram ?? createTelegramAdapterFor(ctx.env);
   const app = Fastify({
     // Fastify 5 takes a pre-built pino instance as `loggerInstance` (`logger` is config only).
     // Widening to FastifyBaseLogger keeps the instance type default, so plugins typed against
@@ -53,6 +58,7 @@ export const buildApp = async (
   healthRoutes(app, ctx);
   captureRoutes(app, ctx);
   pipelineRoutes(app, ctx, { llm, research });
+  telegramRoutes(app, ctx, { telegram, llm });
   internalRoutes(app, ctx);
 
   return app;

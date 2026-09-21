@@ -34,6 +34,8 @@ export default tseslint.config(
       'packages/db/src/cli.ts',
       'infra/**/*.ts',
       'apps/*/src/cli.ts',
+      // The bot's CLI commands report to a human on stdout; everything else logs through pino.
+      'apps/bot/src/main.ts',
     ],
     rules: { 'no-console': 'off' },
   },

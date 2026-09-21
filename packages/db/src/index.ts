@@ -6,4 +6,5 @@ export * as contentAtoms from './repositories/content-atoms.js';
 export * as sourceDocuments from './repositories/source-documents.js';
 export * as contentIdeas from './repositories/content-ideas.js';
 export * as contentItems from './repositories/content-items.js';
+export * as approvals from './repositories/approvals.js';
 export * from './testing.js';
