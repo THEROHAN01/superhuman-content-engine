@@ -8,3 +8,4 @@ export * from './atom.js';
 export * from './ideation.js';
 export * from './draft-validation.js';
 export * from './generate.js';
+export * from './quality-gate.js';

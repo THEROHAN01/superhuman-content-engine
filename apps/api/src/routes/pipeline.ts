@@ -12,6 +12,7 @@ import {
   listItemsForIdea,
   queueBestIdeas,
   researchContentAtom,
+  runQualityGate,
   type ServiceContext,
 } from '@sce/core';
 import { CONTENT_FORMATS, type ContentFormat } from '@sce/schemas';
@@ -300,6 +301,35 @@ export const pipelineRoutes = (
     async (request) => {
       const items = await listItemsForIdea(ctx, request.params.id);
       return { items, count: items.length };
+    },
+  );
+
+  /**
+   * Runs the quality gate. Deterministic and idempotent: a replay returns the stored verdict for
+   * the same gate version. The gate records its judgement and never edits the draft.
+   */
+  app.post<{ Params: { id: string }; Body: { force?: boolean } }>(
+    '/content-items/:id/gate',
+    { preHandler: auth },
+    async (request, reply) => {
+      const result = await runQualityGate(ctx, request.params.id, {
+        force: request.body?.force === true,
+      });
+
+      if (!result.ok) {
+        throw new AppError(result.error, result.error.code === 'E_ITEM_NOT_FOUND' ? 404 : 422);
+      }
+
+      return reply.code(200).send({
+        content_item_id: result.value.item.id,
+        status: result.value.item.status,
+        unchanged: result.value.unchanged,
+        verdict: result.value.result.verdict,
+        score: result.value.result.score,
+        gate_version: result.value.result.gate_version,
+        evaluated_at: result.value.result.evaluated_at,
+        reasons: result.value.result.reasons,
+      });
     },
   );
 };

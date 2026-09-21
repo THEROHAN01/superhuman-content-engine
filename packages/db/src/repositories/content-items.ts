@@ -124,7 +124,8 @@ const ALLOWED_FROM: Record<ContentItemStatus, readonly ContentItemStatus[]> = {
   gated: ['draft', 'gated'],
   pending_approval: ['gated'],
   approved: ['pending_approval'],
-  rejected: ['pending_approval', 'gated'],
+  // The quality gate rejects straight from `draft`; a human rejects from `pending_approval`.
+  rejected: ['draft', 'gated', 'pending_approval'],
   scheduled: ['approved'],
   published: ['scheduled', 'approved'],
   superseded: ['draft', 'gated', 'pending_approval', 'rejected'],
