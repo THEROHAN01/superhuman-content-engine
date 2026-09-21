@@ -16,13 +16,20 @@ import { claimSupport } from './source-document.js';
  */
 export const CONTENT_ATOM_SCHEMA_VERSION = 1;
 
+/**
+ * Atom body.
+ *
+ * Core sections may be empty while the atom is a *shell* (created at classification time, before
+ * enrichment and transformation). Completeness is enforced separately by `readyContentAtom`, so a
+ * half-built atom is representable and inspectable instead of being rejected or faked.
+ */
 export const contentAtomBody = z.object({
   /** The question or problem this learning answers. */
-  problem: z.string().min(10).max(1000),
+  problem: z.string().max(1000),
   /** The single most useful takeaway, in one or two sentences. */
-  core_insight: z.string().min(10).max(1000),
+  core_insight: z.string().max(1000),
   /** Explanation from first principles - why it works, not just what to do. */
-  first_principles: z.string().min(10).max(4000),
+  first_principles: z.string().max(4000),
   example: z.string().max(4000).nullable(),
   implementation_details: z.string().max(4000).nullable(),
   /** The failure mode or mistake this knowledge prevents. */
@@ -59,3 +66,19 @@ export const contentAtom = z
   })
   .merge(timestamps);
 export type ContentAtom = z.infer<typeof contentAtom>;
+
+/** An atom that may be used to generate content: every core section is actually filled in. */
+export const readyContentAtom = contentAtom.superRefine((atom, ctx) => {
+  if (atom.status !== 'ready') return;
+  const required: Array<keyof typeof atom.body> = ['problem', 'core_insight', 'first_principles'];
+  for (const field of required) {
+    const value = atom.body[field];
+    if (typeof value !== 'string' || value.trim().length < 10) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['body', field],
+        message: `a ready atom needs a substantive ${String(field)}`,
+      });
+    }
+  }
+});

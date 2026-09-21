@@ -12,6 +12,7 @@ import {
   contentItem,
   httpUrl,
   publication,
+  readyContentAtom,
   sourceDocument,
 } from './index.js';
 
@@ -113,9 +114,27 @@ describe('content atom', () => {
     expect(contentAtom.safeParse({ ...validAtom, confidence: 1.4 }).success).toBe(false);
   });
 
-  it('requires the core sections to be present', () => {
-    const body = { ...validAtom.body, core_insight: '' };
-    expect(contentAtom.safeParse({ ...validAtom, body }).success).toBe(false);
+  it('allows an empty shell while the atom is still being built', () => {
+    const shell = {
+      ...validAtom,
+      status: 'draft',
+      body: { ...validAtom.body, problem: '', core_insight: '', first_principles: '' },
+    };
+    expect(contentAtom.safeParse(shell).success).toBe(true);
+    expect(readyContentAtom.safeParse(shell).success).toBe(true); // not 'ready', so not yet required
+  });
+
+  it('refuses to call an atom ready while its core sections are empty', () => {
+    const halfBuilt = {
+      ...validAtom,
+      status: 'ready',
+      body: { ...validAtom.body, core_insight: '' },
+    };
+    const result = readyContentAtom.safeParse(halfBuilt);
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error.issues[0]!.path).toEqual(['body', 'core_insight']);
+    }
   });
 });
 

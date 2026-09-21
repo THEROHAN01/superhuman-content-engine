@@ -1,17 +1,28 @@
 import Fastify, { type FastifyBaseLogger, type FastifyInstance } from 'fastify';
 import rateLimit from '@fastify/rate-limit';
 import type { ServiceContext } from '@sce/core';
+import { createLlmAdapter, type LlmAdapter } from '@sce/adapters';
 import { correlationPlugin } from './plugins/correlation.js';
 import { errorHandlerPlugin } from './plugins/error-handler.js';
 import { healthRoutes } from './routes/health.js';
 import { captureRoutes } from './routes/capture.js';
+import { pipelineRoutes } from './routes/pipeline.js';
 import { internalRoutes } from './routes/internal.js';
 
 /**
  * Builds the HTTP surface. The context is injected so tests can run the real routes against a
  * real database with a fixed clock, and so no module-level singletons exist.
  */
-export const buildApp = async (ctx: ServiceContext): Promise<FastifyInstance> => {
+export interface AppDeps {
+  /** Injected so tests can drive the pipeline with a failing or scripted model. */
+  llm?: LlmAdapter;
+}
+
+export const buildApp = async (
+  ctx: ServiceContext,
+  deps: AppDeps = {},
+): Promise<FastifyInstance> => {
+  const llm = deps.llm ?? createLlmAdapter(ctx.env);
   const app = Fastify({
     // Fastify 5 takes a pre-built pino instance as `loggerInstance` (`logger` is config only).
     // Widening to FastifyBaseLogger keeps the instance type default, so plugins typed against
@@ -34,6 +45,7 @@ export const buildApp = async (ctx: ServiceContext): Promise<FastifyInstance> =>
 
   healthRoutes(app, ctx);
   captureRoutes(app, ctx);
+  pipelineRoutes(app, ctx, { llm });
   internalRoutes(app, ctx);
 
   return app;
