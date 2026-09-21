@@ -1,7 +1,12 @@
 import Fastify, { type FastifyBaseLogger, type FastifyInstance } from 'fastify';
 import rateLimit from '@fastify/rate-limit';
 import type { ServiceContext } from '@sce/core';
-import { createLlmAdapter, type LlmAdapter } from '@sce/adapters';
+import {
+  createLlmAdapter,
+  createResearchAdapter,
+  type LlmAdapter,
+  type ResearchAdapter,
+} from '@sce/adapters';
 import { correlationPlugin } from './plugins/correlation.js';
 import { errorHandlerPlugin } from './plugins/error-handler.js';
 import { healthRoutes } from './routes/health.js';
@@ -14,8 +19,9 @@ import { internalRoutes } from './routes/internal.js';
  * real database with a fixed clock, and so no module-level singletons exist.
  */
 export interface AppDeps {
-  /** Injected so tests can drive the pipeline with a failing or scripted model. */
+  /** Injected so tests can drive the pipeline with a failing or scripted provider. */
   llm?: LlmAdapter;
+  research?: ResearchAdapter;
 }
 
 export const buildApp = async (
@@ -23,6 +29,7 @@ export const buildApp = async (
   deps: AppDeps = {},
 ): Promise<FastifyInstance> => {
   const llm = deps.llm ?? createLlmAdapter(ctx.env);
+  const research = deps.research ?? createResearchAdapter(ctx.env);
   const app = Fastify({
     // Fastify 5 takes a pre-built pino instance as `loggerInstance` (`logger` is config only).
     // Widening to FastifyBaseLogger keeps the instance type default, so plugins typed against
@@ -45,7 +52,7 @@ export const buildApp = async (
 
   healthRoutes(app, ctx);
   captureRoutes(app, ctx);
-  pipelineRoutes(app, ctx, { llm });
+  pipelineRoutes(app, ctx, { llm, research });
   internalRoutes(app, ctx);
 
   return app;
