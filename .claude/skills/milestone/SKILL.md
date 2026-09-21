@@ -27,6 +27,7 @@ be expected to close.
 ## 3. Implement
 
 Smallest coherent slices, in dependency order. For each slice:
+
 - Contracts first (`packages/schemas`), then DB (`packages/db/migrations`), then logic, then the
   HTTP/worker/n8n surface, then tests.
 - Every external boundary: zod validation, timeout, bounded retry, typed failure, structured log.
@@ -39,7 +40,7 @@ pnpm verify                     # typecheck + lint + unit tests
 DATABASE_URL=... pnpm test      # includes DB-backed tests
 ```
 
-Plus at least one *executable* proof specific to the milestone (a `curl` against the running API,
+Plus at least one _executable_ proof specific to the milestone (a `curl` against the running API,
 a `psql` query showing the constraint firing, a job run, a replayed webhook). Paste the real output
 into the milestone report. Never write "should work".
 

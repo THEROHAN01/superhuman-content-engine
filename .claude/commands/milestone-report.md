@@ -1,6 +1,6 @@
 ---
 description: Write the required completion report for the current milestone into docs/milestones/
-argument-hint: "<milestone number>"
+argument-hint: '<milestone number>'
 ---
 
 Produce the build plan's mandatory completion report for milestone $1.

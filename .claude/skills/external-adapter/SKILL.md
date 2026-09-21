@@ -28,7 +28,7 @@ packages/adapters/src/<domain>/
 3. Retries only for transient failures (network, 429, 5xx) via `withRetry` from `@sce/utils`:
    bounded attempts, exponential backoff with jitter, respects `Retry-After`.
 4. Return a discriminated union (`{ok: true, ...} | {ok: false, kind: 'transient'|'permanent',
-   ...}`) — do not throw across the boundary for expected failures.
+...}`) — do not throw across the boundary for expected failures.
 5. Never log request/response bodies containing credentials; log status, duration, attempt count,
    correlation id.
 6. Write operations take an idempotency key and the caller records the external id.

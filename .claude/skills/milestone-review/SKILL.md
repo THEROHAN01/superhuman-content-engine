@@ -17,7 +17,7 @@ Review the **repository**, not the previous explanation. Assume the report may b
    `rg -n "ON CONFLICT|idempotency" packages apps`
 6. Check secrets and logging: `git grep -nIE "(sk-|ghp_|xox|BEGIN (RSA|OPENSSH))"`, confirm
    `.env` is ignored, confirm pino redaction covers new fields.
-7. Check DB integrity: migrations re-run cleanly on an empty DB *and* on the dev DB; constraints
+7. Check DB integrity: migrations re-run cleanly on an empty DB _and_ on the dev DB; constraints
    and indexes exist (`\d+ <table>`).
 8. Check external API handling: timeout, retry, rate-limit and partial-failure paths exist and
    are tested with fakes — no live calls.

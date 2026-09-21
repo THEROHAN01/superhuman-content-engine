@@ -16,7 +16,7 @@ node, manual retry, provider redelivery):
 2. Confirm a **database-level** guarantee backs it: a `UNIQUE` index plus `ON CONFLICT DO NOTHING`
    / `DO UPDATE`, or a transactional `SELECT ... FOR UPDATE`. Application-level "check then
    insert" without a unique index is a race and is a finding.
-3. Confirm the second execution returns the *same* result as the first (same id, same status)
+3. Confirm the second execution returns the _same_ result as the first (same id, same status)
    rather than an error the caller will retry forever.
 4. Confirm state transitions are monotonic: a late duplicate must not move `PUBLISHED` back to
    `SCHEDULED`, and a replayed approval must not resurrect a rejected item.

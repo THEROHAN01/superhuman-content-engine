@@ -1,0 +1,13 @@
+{
+  "name": "@sce/workers",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "./src/main.ts",
+  "dependencies": {
+    "@sce/utils": "workspace:*",
+    "@sce/db": "workspace:*",
+    "@sce/core": "workspace:*",
+    "@sce/adapters": "workspace:*"
+  }
+}

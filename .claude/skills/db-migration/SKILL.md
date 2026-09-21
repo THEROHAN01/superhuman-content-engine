@@ -15,7 +15,7 @@ transaction, tracked in `schema_migrations`.
 2. Write idempotent DDL: `CREATE TABLE IF NOT EXISTS`, `ADD COLUMN IF NOT EXISTS`,
    `CREATE INDEX IF NOT EXISTS`, `DROP ... IF EXISTS`.
 3. Every table gets: text primary key with a typed prefix, `created_at timestamptz NOT NULL
-   DEFAULT now()`, `updated_at timestamptz NOT NULL DEFAULT now()` plus the `set_updated_at`
+DEFAULT now()`, `updated_at timestamptz NOT NULL DEFAULT now()` plus the `set_updated_at`
    trigger (migration 0001 defines the function).
 4. Status columns are `TEXT NOT NULL CHECK (col IN (...))` and **must** match the zod enum in
    `packages/schemas/src/enums.ts`. Change both in the same commit; `packages/db/test/enum-parity`

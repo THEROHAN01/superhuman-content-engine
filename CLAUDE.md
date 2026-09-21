@@ -21,7 +21,7 @@ learning_event -> source_document(s) -> content_atom -> content_idea -> content_
 
 1. **Never commit secrets.** Only `.env.example` with placeholders. `.env` is git-ignored.
 2. **Never publish real social content** from development. `PUBLISH_MODE=dry_run` is the default
-   and the publishing adapter must refuse live mode unless `PUBLISH_MODE=live` *and* the content
+   and the publishing adapter must refuse live mode unless `PUBLISH_MODE=live` _and_ the content
    row is `APPROVED`.
 3. **Never invent APIs, credentials, endpoints, or external behavior.** If an external contract is
    unverified, implement it behind an adapter interface, default to the `mock` provider, and
