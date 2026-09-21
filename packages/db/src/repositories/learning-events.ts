@@ -60,7 +60,9 @@ export const insertLearningEvent = async (
     `INSERT INTO learning_events
        (id, status, source, external_id, raw_text, title, content_hash, tags, context, captured_at, correlation_id)
      VALUES ($1, 'received', $2, $3, $4, $5, $6, $7, $8::jsonb, $9, $10)
-     ON CONFLICT (content_hash) WHERE duplicate_of IS NULL DO NOTHING
+     -- Bare DO NOTHING covers BOTH uniqueness rules (content hash and provider external id);
+     -- naming one index would let a conflict on the other raise instead of deduplicating.
+     ON CONFLICT DO NOTHING
      RETURNING ${COLUMNS}`,
     [
       input.id,
@@ -78,12 +80,13 @@ export const insertLearningEvent = async (
 
   if (rows.length > 0) return { event: toDomain(rows[0]!), inserted: true };
 
-  const existing = await findByContentHash(db, input.content_hash);
+  // Nothing was inserted, so an equivalent event already exists. Resolve which rule matched and
+  // return that row, so a retrying caller converges on the original instead of erroring.
+  const existing =
+    (await findByContentHash(db, input.content_hash)) ??
+    (await findBySourceExternalId(db, input.source, input.external_id));
   if (!existing) {
-    // The only way to get here is a conflict on (source, external_id) rather than content_hash.
-    const bySource = await findBySourceExternalId(db, input.source, input.external_id);
-    if (!bySource) throw new Error('insert conflicted but no existing learning event was found');
-    return { event: bySource, inserted: false };
+    throw new Error('insert was skipped by ON CONFLICT but no existing learning event was found');
   }
   return { event: existing, inserted: false };
 };
