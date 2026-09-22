@@ -209,16 +209,20 @@ boundaries and nothing else, so the suite exercises production routing, SQL and 
    `# RESEARCH_PROVIDER=mock | fixture | searxng | disabled | failing  (fixture is demo-only and refused in production)`.
    The authoritative list is in `docs/environment.md` and `packages/utils/src/env.ts`, and the env
    validator rejects anything else, so nothing is silently wrong.
-2. **Docker Compose still has not been started here** (no Docker daemon). It is validated
+2. **The `v0.1.0` tag exists locally but is not on the remote.** The branch pushed fine;
+   `git push origin v0.1.0` returns HTTP 403, so this session's credentials cover `refs/heads`
+   but not `refs/tags`. The annotated tag points at `c720ead` and needs one command from a
+   machine with tag-push rights: `git push origin v0.1.0`.
+3. **Docker Compose still has not been started here** (no Docker daemon). It is validated
    statically by `tests/infra/compose.test.ts`; the first `infra/scripts/start.sh` on a Docker host
    remains a verification step, and is on the launch checklist.
-3. **Postiz, SearxNG and Telegram analytics contracts remain assumptions**, recorded as such in
+4. **Postiz, SearxNG and Telegram analytics contracts remain assumptions**, recorded as such in
    `docs/external-apis.md`. Every one of them defaults to a mock.
-4. **The `fixture` corpus is curated reference material, not fetched search results.** This
+5. **The `fixture` corpus is curated reference material, not fetched search results.** This
    environment's network policy blocks general web hosts, so the entries could not be fetch-checked
    here. They are canonical documentation and standards landing pages, they are refused in
    production, and every source they produce is stamped `provider = 'fixture'` in the database.
-5. **The weekly report's comparative signals stay low-confidence** on a small dataset, by design -
+6. **The weekly report's comparative signals stay low-confidence** on a small dataset, by design -
    one publication is not a trend. The suite asserts the honest "not enough measured publications"
    basis rather than a fabricated insight.
 
