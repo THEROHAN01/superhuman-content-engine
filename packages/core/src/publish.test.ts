@@ -388,3 +388,161 @@ describeDb('publishing', () => {
     expect(result.error.code).toBe('E_INVALID_SCHEDULE');
   });
 });
+
+describeDb('provider returning a duplicate external id', () => {
+  let db: TestDb;
+  let ctx: ServiceContext;
+
+  beforeAll(async () => {
+    db = await createTestDb('publishing_duplicate_id');
+    ctx = {
+      db: db.db,
+      env: parseEnv({
+        DATABASE_URL: process.env['TEST_DATABASE_URL']!,
+        NODE_ENV: 'test',
+      } as NodeJS.ProcessEnv),
+      logger: createLogger({ name: 'test', level: 'silent' }),
+      clock: fixedClock('2026-09-21T12:00:00.000Z'),
+    };
+  });
+
+  afterAll(async () => {
+    await db?.close();
+  });
+
+  it('fails the publication with a clear reason instead of a raw database error', async () => {
+    // A provider that hands back the same id for every post: two of our publications would claim
+    // one real post, which must be refused loudly.
+    const confused: PublishingAdapter = {
+      name: 'confused',
+      simulated: true,
+      async schedule() {
+        return {
+          ok: true,
+          value: {
+            externalId: 'same-id-every-time',
+            externalUrl: null,
+            status: 'scheduled',
+            metadata: {},
+          },
+        };
+      },
+      async cancel() {
+        return { ok: true, value: undefined };
+      },
+    };
+
+    await db.truncate();
+
+    const makeApproved = async () => {
+      const text = `note ${newId('learningEvent')} duplicate external id probe`;
+      const { event } = await learningEvents.insertLearningEvent(db.db, {
+        id: newId('learningEvent'),
+        source: 'http',
+        external_id: null,
+        raw_text: text,
+        title: null,
+        content_hash: contentHash(text),
+        tags: [],
+        context: {},
+        captured_at: new Date().toISOString(),
+        correlation_id: newCorrelationId(),
+      });
+      const { atom } = await contentAtoms.upsertContentAtom(db.db, {
+        id: newId('contentAtom'),
+        learning_event_id: event.id,
+        status: 'ready',
+        title: 'Duplicate provider ids',
+        kind: 'core_engineering',
+        primary_topic: 'backend',
+        secondary_topics: [],
+        entities: [],
+        body: {
+          problem: 'Why would a provider hand back the same id twice?',
+          core_insight: 'Two publications claiming one post is a contradiction, not a retry.',
+          first_principles:
+            'Provider ids are the only handle on a post, so they must map one to one.',
+          example: null,
+          implementation_details: null,
+          failure_mode: null,
+          mental_model: null,
+          personal_observation: null,
+          claims: [],
+          angle_candidates: [],
+        },
+        evidence_status: 'not_required',
+        confidence: 0.5,
+        generator_version: 'atom.v1',
+      });
+      const { idea } = await contentIdeas.insertContentIdea(db.db, {
+        id: newId('contentIdea'),
+        content_atom_id: atom.id,
+        learning_event_id: event.id,
+        status: 'used',
+        angle: 'insight',
+        title: 'Duplicate provider ids are a contradiction',
+        rationale: 'Explains why the system refuses two publications with one provider id.',
+        audience: 'engineers',
+        platforms: ['x'],
+        formats: ['x_post'],
+        hook: 'Two publications cannot share one post.',
+        evidence_required: false,
+        dedupe_hash: contentHash(newId('contentIdea')),
+        rejection_reason: null,
+        score: 0.5,
+        prompt_version: 'ideation.v1',
+      });
+      const { item } = await contentItems.insertContentItemVersion(db.db, {
+        id: newId('contentItem'),
+        content_idea_id: idea.id,
+        content_atom_id: atom.id,
+        learning_event_id: event.id,
+        platform: 'x',
+        format: 'x_post',
+        draft: {
+          hook: 'Two publications cannot share one post.',
+          units: [
+            {
+              index: 0,
+              text: 'A provider id is the only handle we have on a published post, so two publications claiming the same id is a contradiction rather than a retry.',
+              note: null,
+            },
+          ],
+          body: 'A provider id is the only handle we have on a published post, so two publications claiming the same id is a contradiction rather than a retry.',
+          hashtags: [],
+          call_to_action: null,
+          source_attributions: [],
+        },
+        prompt_id: 'x_post',
+        prompt_version: 'x-post.v1',
+        model: 'mock',
+        correlation_id: event.correlation_id,
+      });
+      await contentItems.setContentItemStatus(db.db, item.id, 'gated');
+      await contentItems.setContentItemStatus(db.db, item.id, 'pending_approval');
+      await contentItems.setContentItemStatus(db.db, item.id, 'approved');
+      return item;
+    };
+
+    const first = await makeApproved();
+    const second = await makeApproved();
+
+    const ok = await schedulePublication(ctx, first.id, { publisher: confused, scheduledAt: SLOT });
+    expect(ok.ok).toBe(true);
+
+    const clash = await schedulePublication(ctx, second.id, {
+      publisher: confused,
+      scheduledAt: SLOT,
+    });
+    expect(clash.ok).toBe(false);
+    if (clash.ok) return;
+    expect(clash.error.code).toBe('E_PUBLISH_DUPLICATE_EXTERNAL_ID');
+
+    const rows = await publicationsRepo.listPublicationsForItem(db.db, second.id);
+    expect(rows[0]!.status).toBe('failed');
+    expect(rows[0]!.last_error).toContain('already recorded');
+
+    const errors = await operations.listErrorEvents(db.db, {});
+    expect(errors.some((e) => e.code === 'E_PUBLISH_DUPLICATE_EXTERNAL_ID')).toBe(true);
+  });
+});

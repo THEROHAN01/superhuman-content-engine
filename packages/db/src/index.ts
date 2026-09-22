@@ -8,4 +8,6 @@ export * as contentIdeas from './repositories/content-ideas.js';
 export * as contentItems from './repositories/content-items.js';
 export * as approvals from './repositories/approvals.js';
 export * as publications from './repositories/publications.js';
+export * as analytics from './repositories/analytics.js';
+export * as jobs from './repositories/jobs.js';
 export * from './testing.js';

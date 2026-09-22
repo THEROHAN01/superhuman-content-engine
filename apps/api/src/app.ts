@@ -2,11 +2,13 @@ import Fastify, { type FastifyBaseLogger, type FastifyInstance } from 'fastify';
 import rateLimit from '@fastify/rate-limit';
 import type { ServiceContext } from '@sce/core';
 import {
+  createAnalyticsAdapter,
   createLlmAdapter,
   createResearchAdapter,
   createPublishingAdapter,
   createTelegramAdapterFor,
   type LlmAdapter,
+  type AnalyticsAdapter,
   type PublishingAdapter,
   type ResearchAdapter,
   type TelegramAdapter,
@@ -17,6 +19,7 @@ import { errorHandlerPlugin } from './plugins/error-handler.js';
 import { healthRoutes } from './routes/health.js';
 import { captureRoutes } from './routes/capture.js';
 import { pipelineRoutes } from './routes/pipeline.js';
+import { analyticsRoutes } from './routes/analytics.js';
 import { githubRoutes } from './routes/github.js';
 import { publishRoutes } from './routes/publish.js';
 import { telegramRoutes } from './routes/telegram.js';
@@ -32,6 +35,7 @@ export interface AppDeps {
   research?: ResearchAdapter;
   telegram?: TelegramAdapter;
   publisher?: PublishingAdapter;
+  analytics?: AnalyticsAdapter;
 }
 
 export const buildApp = async (
@@ -42,6 +46,7 @@ export const buildApp = async (
   const research = deps.research ?? createResearchAdapter(ctx.env);
   const telegram = deps.telegram ?? createTelegramAdapterFor(ctx.env);
   const publisher = deps.publisher ?? createPublishingAdapter(ctx.env);
+  const analytics = deps.analytics ?? createAnalyticsAdapter(ctx.env);
   const app = Fastify({
     // Fastify 5 takes a pre-built pino instance as `loggerInstance` (`logger` is config only).
     // Widening to FastifyBaseLogger keeps the instance type default, so plugins typed against
@@ -69,6 +74,7 @@ export const buildApp = async (
   telegramRoutes(app, ctx, { telegram, llm });
   publishRoutes(app, ctx, { publisher });
   githubRoutes(app, ctx);
+  analyticsRoutes(app, ctx, { analytics });
   internalRoutes(app, ctx);
 
   return app;

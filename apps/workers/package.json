@@ -8,6 +8,10 @@
     "@sce/utils": "workspace:*",
     "@sce/db": "workspace:*",
     "@sce/core": "workspace:*",
-    "@sce/adapters": "workspace:*"
+    "@sce/adapters": "workspace:*",
+    "@sce/schemas": "workspace:*"
+  },
+  "scripts": {
+    "worker": "tsx src/main.ts"
   }
 }

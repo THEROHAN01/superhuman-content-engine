@@ -1,4 +1,4 @@
-import { contentItems, operations, publications } from '@sce/db';
+import { contentItems, isUniqueViolation, operations, publications } from '@sce/db';
 import type { PublishingAdapter } from '@sce/adapters';
 import { idempotencyKey, newId, permanent, withRetry, type Result } from '@sce/utils';
 import type { Publication } from '@sce/schemas';
@@ -149,14 +149,50 @@ export const schedulePublication = async (
   }
 
   const receipt = attempt.value;
-  const updated = await publications.setPublicationStatus(ctx.db, publication.id, 'scheduled', {
-    external_id: receipt.externalId,
-    external_url: receipt.externalUrl,
-    // Provider metadata is stored as returned by the adapter, which has already stripped secrets.
-    provider_metadata: receipt.metadata,
-    last_error: '',
-    incrementAttempts: true,
-  });
+
+  let updated;
+  try {
+    updated = await publications.setPublicationStatus(ctx.db, publication.id, 'scheduled', {
+      external_id: receipt.externalId,
+      external_url: receipt.externalUrl,
+      // Provider metadata is stored as returned by the adapter, which has already stripped secrets.
+      provider_metadata: receipt.metadata,
+      last_error: '',
+      incrementAttempts: true,
+    });
+  } catch (error) {
+    // `(provider, external_id)` is unique: the provider handed us an id that already belongs to a
+    // different publication. That means two of our rows would claim one post, which is exactly the
+    // confusion this system exists to prevent - so it is a hard failure with the reason recorded,
+    // not an unhandled database error.
+    if (!isUniqueViolation(error)) throw error;
+
+    const message = `provider returned external id ${receipt.externalId}, which is already recorded against another publication`;
+    await publications.setPublicationStatus(ctx.db, publication.id, 'failed', {
+      last_error: message.slice(0, 2000),
+      incrementAttempts: true,
+    });
+    await operations.recordError(ctx.db, {
+      workflow: 'content_publish_v1',
+      step: 'record',
+      kind: 'permanent',
+      code: 'E_PUBLISH_DUPLICATE_EXTERNAL_ID',
+      message,
+      correlationId: item.correlation_id,
+      subjectId: item.id,
+      details: { publication_id: publication.id, external_id: receipt.externalId },
+    });
+    await operations.finishWorkflowRun(ctx.db, runId, 'failed', {
+      code: 'E_PUBLISH_DUPLICATE_EXTERNAL_ID',
+    });
+
+    return {
+      ok: false,
+      error: permanent('E_PUBLISH_DUPLICATE_EXTERNAL_ID', message, {
+        external_id: receipt.externalId,
+      }),
+    };
+  }
 
   const transition = await contentItems.setContentItemStatus(ctx.db, item.id, 'scheduled');
 

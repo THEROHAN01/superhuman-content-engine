@@ -104,6 +104,9 @@ importers:
       '@sce/db':
         specifier: workspace:*
         version: link:../../packages/db
+      '@sce/schemas':
+        specifier: workspace:*
+        version: link:../../packages/schemas
       '@sce/utils':
         specifier: workspace:*
         version: link:../../packages/utils

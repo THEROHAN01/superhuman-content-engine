@@ -36,6 +36,7 @@ export default tseslint.config(
       'apps/*/src/cli.ts',
       // The bot's CLI commands report to a human on stdout; everything else logs through pino.
       'apps/bot/src/main.ts',
+      'apps/workers/src/main.ts',
     ],
     rules: { 'no-console': 'off' },
   },
