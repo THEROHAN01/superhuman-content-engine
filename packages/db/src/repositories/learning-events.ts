@@ -127,12 +127,20 @@ export const findBySourceExternalId = async (
  * Allowed predecessors for each status. Transitions are monotonic: a replayed normalization can
  * never pull an already-atomized event backwards, and a terminal status is never left.
  */
+/**
+ * Forward-only status transitions.
+ *
+ * `failed` is a *recoverable* state, not a terminal one: an event that failed because the model
+ * was unreachable must be retryable once it is back, or a transient outage would strand the note
+ * forever. Re-running cannot duplicate anything - a learning event has at most one atom, enforced
+ * by `content_atoms_learning_event_key`.
+ */
 const ALLOWED_FROM: Record<LearningEventStatus, readonly LearningEventStatus[]> = {
   received: [],
-  normalized: ['received'],
-  classified: ['received', 'normalized'],
-  atomized: ['normalized', 'classified'],
-  duplicate: ['received', 'normalized', 'classified'],
+  normalized: ['received', 'failed'],
+  classified: ['received', 'normalized', 'failed'],
+  atomized: ['normalized', 'classified', 'failed'],
+  duplicate: ['received', 'normalized', 'classified', 'failed'],
   failed: ['received', 'normalized', 'classified'],
 };
 

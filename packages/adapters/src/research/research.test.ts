@@ -3,6 +3,7 @@ import { parseEnv } from '@sce/utils';
 import {
   createDisabledResearchAdapter,
   createFailingResearchAdapter,
+  createFixtureResearchAdapter,
   createMockResearchAdapter,
   createResearchAdapter,
   createSearxngAdapter,
@@ -155,6 +156,55 @@ describe('searxng adapter', () => {
   });
 });
 
+describe('fixture research adapter', () => {
+  it('is deterministic and does not present itself as synthetic', async () => {
+    const adapter = createFixtureResearchAdapter();
+    expect(adapter.name).toBe('fixture');
+    expect(adapter.synthetic).toBe(false);
+
+    const first = await adapter.search({ query: 'refresh token rotation', maxResults: 3 });
+    const second = await adapter.search({ query: 'refresh token rotation', maxResults: 3 });
+    expect(first).toEqual(second);
+  });
+
+  it('returns canonical references that rank as strong evidence', async () => {
+    const result = await createFixtureResearchAdapter().search({
+      query: 'refresh token rotation documentation',
+      maxResults: 3,
+    });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+
+    expect(result.value.length).toBeGreaterThanOrEqual(2);
+    for (const item of result.value) {
+      // No reserved example domains: the whole point of this provider is that its entries are
+      // real references rather than generated placeholders.
+      expect(item.url).not.toMatch(/example\.(com|org|net)/);
+      expect(['official_docs', 'rfc']).toContain(inferSourceType(item.url));
+      expect(item.snippet.length).toBeGreaterThan(40);
+    }
+  });
+
+  it('never invents a result for an unmatched topic - it falls back to a general reference', async () => {
+    const result = await createFixtureResearchAdapter().search({
+      query: 'zzzz unmatched topic zzzz',
+      maxResults: 5,
+    });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.value).toHaveLength(1);
+    expect(result.value[0]!.url).toContain('developer.mozilla.org');
+  });
+
+  it('honours maxResults', async () => {
+    const result = await createFixtureResearchAdapter().search({
+      query: 'postgres skip locked',
+      maxResults: 1,
+    });
+    expect(result.ok && result.value).toHaveLength(1);
+  });
+});
+
 describe('provider selection', () => {
   const base = { DATABASE_URL: 'postgres://u:p@localhost:5432/sce' };
 
@@ -170,5 +220,20 @@ describe('provider selection', () => {
     } as NodeJS.ProcessEnv);
     expect(createResearchAdapter(env).name).toBe('searxng');
     expect(createResearchAdapter(env).synthetic).toBe(false);
+  });
+
+  it('builds the fixture provider outside production', () => {
+    const env = parseEnv({ ...base, RESEARCH_PROVIDER: 'fixture' } as NodeJS.ProcessEnv);
+    expect(createResearchAdapter(env).name).toBe('fixture');
+  });
+
+  it('refuses the fixture corpus in production', () => {
+    expect(() =>
+      parseEnv({
+        ...base,
+        NODE_ENV: 'production',
+        RESEARCH_PROVIDER: 'fixture',
+      } as NodeJS.ProcessEnv),
+    ).toThrow(/fixture/);
   });
 });

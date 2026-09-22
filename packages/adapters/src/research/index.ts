@@ -2,11 +2,13 @@ import type { Env } from '@sce/utils';
 import { transient } from '@sce/utils';
 import type { ResearchAdapter } from './types.js';
 import { createMockResearchAdapter } from './mock.js';
+import { createFixtureResearchAdapter } from './fixture.js';
 import { createSearxngAdapter } from './searxng.js';
 
 export * from './types.js';
 export * from './source-type.js';
 export { createMockResearchAdapter } from './mock.js';
+export { createFixtureResearchAdapter } from './fixture.js';
 export { createSearxngAdapter } from './searxng.js';
 
 /** Research turned off entirely: succeeds with no results, which is not the same as failing. */
@@ -40,6 +42,8 @@ export const createResearchAdapter = (
         timeoutMs: env.RESEARCH_TIMEOUT_MS,
         ...(overrides.fetchImpl ? { fetchImpl: overrides.fetchImpl } : {}),
       });
+    case 'fixture':
+      return createFixtureResearchAdapter();
     case 'disabled':
       return createDisabledResearchAdapter();
     case 'failing':

@@ -84,10 +84,28 @@ export const schedulePublication = async (
     correlation_id: item.correlation_id,
   });
 
-  // Guard 3: someone already claimed this slot. Return their row; do not call the provider again.
-  if (!claimed) {
+  // Guard 3: someone already claimed this slot.
+  //
+  // A claimed row that reached the provider is final here - returning it is what makes a replay
+  // safe. A claimed row that never reached the provider (no external id, still inside its attempt
+  // budget) is a different situation: the provider was down, and the operator or the retry sweep
+  // is asking again. Retrying it reuses the same row *and* the same idempotency key, so the
+  // provider still cannot create a second post - whereas refusing would strand the publication
+  // forever, since nothing else ever calls the provider for it.
+  const retryable =
+    !claimed &&
+    publication.external_id === null &&
+    (publication.status === 'pending' || publication.status === 'retry_pending') &&
+    publication.attempts < ctx.env.WORKER_MAX_ATTEMPTS;
+
+  if (!claimed && !retryable) {
     ctx.logger.info(
-      { publication_id: publication.id, content_item_id: item.id },
+      {
+        publication_id: publication.id,
+        content_item_id: item.id,
+        status: publication.status,
+        attempts: publication.attempts,
+      },
       'publication already exists for this item and slot; no provider call made',
     );
     return { ok: true, value: { publication, created: false, dry_run: publication.dry_run } };
@@ -101,6 +119,7 @@ export const schedulePublication = async (
       provider: options.publisher.name,
       dry_run: dryRun,
       scheduled_at: scheduledAt.toISOString(),
+      retry_of: claimed ? null : publication.id,
     },
   });
 
@@ -214,7 +233,7 @@ export const schedulePublication = async (
 
   return {
     ok: true,
-    value: { publication: updated?.publication ?? publication, created: true, dry_run: dryRun },
+    value: { publication: updated?.publication ?? publication, created: claimed, dry_run: dryRun },
   };
 };
 

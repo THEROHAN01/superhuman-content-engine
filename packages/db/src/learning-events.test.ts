@@ -90,6 +90,27 @@ describeDb('learning event repository', () => {
     expect(replay!.event.status).toBe('classified');
   });
 
+  it('lets a failed event be retried, but never resurrects a finished one', async () => {
+    const { event } = await capture('retry probe: the model was unreachable for this note');
+
+    await advanceStatus(ctx.db, event.id, 'normalized', { normalized_text: 'retry probe' });
+    const failed = await advanceStatus(ctx.db, event.id, 'failed');
+    expect(failed!.event.status).toBe('failed');
+
+    // A transient outage must not strand the note: processing may start again from the top.
+    const retried = await advanceStatus(ctx.db, event.id, 'normalized');
+    expect(retried).toMatchObject({ changed: true });
+    expect(retried!.event.status).toBe('normalized');
+
+    const atomized = await advanceStatus(ctx.db, event.id, 'atomized');
+    expect(atomized!.event.status).toBe('atomized');
+
+    // An event that finished successfully is still not reopened by a late failure report.
+    const late = await advanceStatus(ctx.db, event.id, 'failed');
+    expect(late).toMatchObject({ changed: false });
+    expect(late!.event.status).toBe('atomized');
+  });
+
   it('returns null when advancing an unknown event', async () => {
     expect(await advanceStatus(ctx.db, 'le_missing', 'normalized')).toBeNull();
   });

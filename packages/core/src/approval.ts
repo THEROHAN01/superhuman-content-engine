@@ -154,6 +154,15 @@ export const sendForApproval = async (
     };
   }
 
+  // Every other pipeline stage leaves a workflow_runs trace; the approval request does too, so
+  // "the card never arrived" is answerable from the database rather than from chat history.
+  const runId = await operations.startWorkflowRun(ctx.db, {
+    workflow: 'approval_request_v1',
+    correlationId: item.correlation_id,
+    subjectId: item.id,
+    input: { format: item.format, version: item.version, provider: options.telegram.name },
+  });
+
   const idea = await contentIdeas.findIdea(ctx.db, item.content_idea_id);
   const atom = await contentAtoms.findAtom(ctx.db, item.content_atom_id);
 
@@ -192,10 +201,14 @@ export const sendForApproval = async (
       correlationId: item.correlation_id,
       subjectId: item.id,
     });
+    await operations.finishWorkflowRun(ctx.db, runId, 'failed', { code: sent.error.code });
     return { ok: false, error: sent.error };
   }
 
   const transition = await contentItems.setContentItemStatus(ctx.db, item.id, 'pending_approval');
+  await operations.finishWorkflowRun(ctx.db, runId, 'succeeded', {
+    message_id: sent.value.messageId,
+  });
   return {
     ok: true,
     value: {

@@ -37,6 +37,23 @@ import {
 const describeDb = hasTestDatabase() ? describe : describe.skip;
 const SLOT = '2026-09-22T09:00:00.000Z';
 
+/** Wraps a publisher to count the calls that actually reached it. */
+const countingPublisher = (
+  inner: PublishingAdapter,
+): { adapter: PublishingAdapter; calls: () => number } => {
+  let calls = 0;
+  return {
+    calls: () => calls,
+    adapter: {
+      ...inner,
+      async schedule(payload) {
+        calls++;
+        return inner.schedule(payload);
+      },
+    },
+  };
+};
+
 describeDb('publishing', () => {
   let db: TestDb;
   let ctx: ServiceContext;
@@ -316,14 +333,70 @@ describeDb('publishing', () => {
       sleep: async () => {},
     });
 
-    // Same slot, working provider: the claimed row is reused.
+    // Same slot, working provider: the claimed row is reused *and* actually reaches the provider
+    // this time. Returning the stranded row without retrying would leave the publication stuck
+    // forever, because nothing else ever calls the provider for it.
     const retry = await schedulePublication(ctx, item.id, { publisher, scheduledAt: SLOT });
     expect(retry.ok).toBe(true);
     if (!retry.ok) return;
     expect(retry.value.created).toBe(false);
+    expect(retry.value.publication.status).toBe('scheduled');
+    expect(retry.value.publication.external_id).toBeTruthy();
 
     const rows = await publicationsRepo.listPublicationsForItem(db.db, item.id);
     expect(rows).toHaveLength(1);
+    expect(rows[0]!.status).toBe('scheduled');
+  });
+
+  it('does not call the provider again once a slot has been published', async () => {
+    const item = await approvedItem();
+    const counted = countingPublisher(publisher);
+
+    const first = await schedulePublication(ctx, item.id, {
+      publisher: counted.adapter,
+      scheduledAt: SLOT,
+    });
+    expect(first.ok).toBe(true);
+    expect(counted.calls()).toBe(1);
+
+    const again = await schedulePublication(ctx, item.id, {
+      publisher: counted.adapter,
+      scheduledAt: SLOT,
+    });
+    expect(again.ok).toBe(true);
+    if (!again.ok) return;
+    expect(again.value.created).toBe(false);
+    // The provider was not touched: the existing external id stands.
+    expect(counted.calls()).toBe(1);
+  });
+
+  it('stops retrying a slot that has exhausted its attempt budget', async () => {
+    const item = await approvedItem();
+    const failing = createFailingPublishingAdapter();
+
+    for (let i = 0; i < ctx.env.WORKER_MAX_ATTEMPTS; i++) {
+      await schedulePublication(ctx, item.id, {
+        publisher: failing,
+        scheduledAt: SLOT,
+        attempts: 1,
+        sleep: async () => {},
+      });
+    }
+
+    const counted = countingPublisher(publisher);
+    const exhausted = await schedulePublication(ctx, item.id, {
+      publisher: counted.adapter,
+      scheduledAt: SLOT,
+    });
+
+    // The budget is spent: the sweep dead-letters this row rather than the API retrying forever.
+    expect(exhausted.ok).toBe(true);
+    if (!exhausted.ok) return;
+    expect(exhausted.value.created).toBe(false);
+    expect(counted.calls()).toBe(0);
+    expect(exhausted.value.publication.attempts).toBeGreaterThanOrEqual(
+      ctx.env.WORKER_MAX_ATTEMPTS,
+    );
   });
 
   it('cancels a scheduled publication', async () => {

@@ -17,7 +17,7 @@ const bool = (def: boolean) =>
 const int = (def: number, min = 1) => z.coerce.number().int().min(min).optional().default(def);
 
 export const LLM_PROVIDERS = ['mock', 'ollama', 'failing'] as const;
-export const RESEARCH_PROVIDERS = ['mock', 'searxng', 'disabled', 'failing'] as const;
+export const RESEARCH_PROVIDERS = ['mock', 'fixture', 'searxng', 'disabled', 'failing'] as const;
 export const PUBLISHING_PROVIDERS = ['mock', 'postiz', 'failing'] as const;
 export const TELEGRAM_PROVIDERS = ['mock', 'telegram', 'failing'] as const;
 export const PUBLISH_MODES = ['dry_run', 'live'] as const;
@@ -84,6 +84,15 @@ export const envSchema = z
     }
     if (env.RESEARCH_PROVIDER === 'searxng')
       require('SEARXNG_BASE_URL', 'required when RESEARCH_PROVIDER=searxng');
+    // The fixture corpus is curated demo data, not research. It may seed a local demo or an
+    // end-to-end test; it must never stand in for evidence in production.
+    if (env.RESEARCH_PROVIDER === 'fixture' && env.NODE_ENV === 'production') {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['RESEARCH_PROVIDER'],
+        message: 'RESEARCH_PROVIDER=fixture is a demo corpus and is refused in production',
+      });
+    }
     if (env.PUBLISHING_PROVIDER === 'postiz') {
       require('POSTIZ_BASE_URL', 'required when PUBLISHING_PROVIDER=postiz');
       require('POSTIZ_API_KEY', 'required when PUBLISHING_PROVIDER=postiz');
