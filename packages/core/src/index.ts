@@ -11,3 +11,4 @@ export * from './generate.js';
 export * from './quality-gate.js';
 export * from './approval.js';
 export * from './publish.js';
+export * from './github-opportunity.js';

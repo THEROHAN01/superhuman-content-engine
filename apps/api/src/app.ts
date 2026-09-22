@@ -12,10 +12,12 @@ import {
   type TelegramAdapter,
 } from '@sce/adapters';
 import { correlationPlugin } from './plugins/correlation.js';
+import { rawBodyPlugin } from './plugins/raw-body.js';
 import { errorHandlerPlugin } from './plugins/error-handler.js';
 import { healthRoutes } from './routes/health.js';
 import { captureRoutes } from './routes/capture.js';
 import { pipelineRoutes } from './routes/pipeline.js';
+import { githubRoutes } from './routes/github.js';
 import { publishRoutes } from './routes/publish.js';
 import { telegramRoutes } from './routes/telegram.js';
 import { internalRoutes } from './routes/internal.js';
@@ -50,6 +52,7 @@ export const buildApp = async (
   });
 
   correlationPlugin(app);
+  rawBodyPlugin(app, { bodyLimit: ctx.env.API_BODY_LIMIT_BYTES });
   errorHandlerPlugin(app);
 
   await app.register(rateLimit, {
@@ -65,6 +68,7 @@ export const buildApp = async (
   pipelineRoutes(app, ctx, { llm, research });
   telegramRoutes(app, ctx, { telegram, llm });
   publishRoutes(app, ctx, { publisher });
+  githubRoutes(app, ctx);
   internalRoutes(app, ctx);
 
   return app;
