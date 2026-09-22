@@ -38,12 +38,15 @@ const workflows = files.map((file) => ({
 describe('n8n workflow exports', () => {
   it('ships the foundation workflows', () => {
     expect(files.sort()).toEqual([
+      'analytics_collect_v1.json',
       'learning_capture_v1.json',
       'system_error_handler_v1.json',
       'system_health_check_v1.json',
+      'system_sweep_v1.json',
       'test_db_connectivity_v1.json',
       'test_http_connectivity_v1.json',
       'test_webhook_v1.json',
+      'weekly_report_v1.json',
     ]);
   });
 

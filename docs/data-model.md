@@ -38,6 +38,19 @@ contracts). This page explains intent; the files hold the detail.
 8. **Unknown metrics stay unknown.** Metrics live in a JSONB document whose fields are nullable;
    nothing coerces a missing metric to `0`.
 
+## Gotcha: `updated_at` cannot be backdated
+
+Every table carries a `set_updated_at` BEFORE UPDATE trigger, so `UPDATE ... SET updated_at = ...`
+is silently overwritten with `now()`. That is correct for production (the column always means "last
+touched") but it means a test or backfill that needs an aged row must disable the trigger for that
+statement:
+
+```sql
+ALTER TABLE content_items DISABLE TRIGGER content_items_set_updated_at;
+UPDATE content_items SET updated_at = now() - interval '100 hours' WHERE id = $1;
+ALTER TABLE content_items ENABLE TRIGGER content_items_set_updated_at;
+```
+
 ## Migration policy
 
 Forward-only, numbered SQL in `packages/db/migrations/`, applied in a transaction by

@@ -193,4 +193,58 @@ workflow("test_http_connectivity_v1", [
          ("GET /health/live", 0, "API reachable"),
          ("GET /health/live", 1, "API unreachable")]))
 
+
+# ---------------------------------------------------------------- 7. analytics collection
+workflow("analytics_collect_v1", [
+    node("Daily at 09:00", "n8n-nodes-base.scheduleTrigger", 1.2, [0, 0],
+         {"rule": {"interval": [{"field": "cronExpression", "expression": "0 9 * * *"}]}}),
+    http("POST /analytics/collect", [240, 0], f"{API}/analytics/collect", "POST",
+         '={{ JSON.stringify({window: "24h"}) }}'),
+    node("Collected", "n8n-nodes-base.noOp", 1, [500, -60], {}),
+    http("Report failure", [500, 120], f"{API}/internal/errors", "POST",
+         '={{ JSON.stringify({workflow: "analytics_collect_v1", step: "collect", kind: "transient", '
+         'code: "E_ANALYTICS_SWEEP_FAILED", message: "scheduled analytics collection failed"}) }}'),
+    node("Failure recorded", "n8n-nodes-base.noOp", 1, [760, 60], {}),
+    node("Could not record failure", "n8n-nodes-base.noOp", 1, [760, 220], {}),
+], conn([("Daily at 09:00", 0, "POST /analytics/collect"),
+         ("POST /analytics/collect", 0, "Collected"),
+         ("POST /analytics/collect", 1, "Report failure"),
+         ("Report failure", 0, "Failure recorded"),
+         ("Report failure", 1, "Could not record failure")]))
+
+# ---------------------------------------------------------------- 8. weekly intelligence
+workflow("weekly_report_v1", [
+    node("Mondays at 08:00", "n8n-nodes-base.scheduleTrigger", 1.2, [0, 0],
+         {"rule": {"interval": [{"field": "cronExpression", "expression": "0 8 * * 1"}]}}),
+    http("POST /reports/weekly", [240, 0], f"{API}/reports/weekly", "POST",
+         '={{ JSON.stringify({deliver: true}) }}'),
+    node("Report delivered", "n8n-nodes-base.noOp", 1, [500, -60], {}),
+    http("Report failure", [500, 120], f"{API}/internal/errors", "POST",
+         '={{ JSON.stringify({workflow: "weekly_report_v1", step: "generate", kind: "transient", '
+         'code: "E_WEEKLY_REPORT_FAILED", message: "weekly report generation or delivery failed"}) }}'),
+    node("Failure recorded", "n8n-nodes-base.noOp", 1, [760, 60], {}),
+    node("Could not record failure", "n8n-nodes-base.noOp", 1, [760, 220], {}),
+], conn([("Mondays at 08:00", 0, "POST /reports/weekly"),
+         ("POST /reports/weekly", 0, "Report delivered"),
+         ("POST /reports/weekly", 1, "Report failure"),
+         ("Report failure", 0, "Failure recorded"),
+         ("Report failure", 1, "Could not record failure")]))
+
+# ---------------------------------------------------------------- 9. housekeeping sweep
+workflow("system_sweep_v1", [
+    node("Hourly", "n8n-nodes-base.scheduleTrigger", 1.2, [0, 0],
+         {"rule": {"interval": [{"field": "hours", "hoursInterval": 1}]}}),
+    http("POST /system/sweep", [240, 0], f"{API}/system/sweep", "POST", '={{ JSON.stringify({}) }}'),
+    node("Swept", "n8n-nodes-base.noOp", 1, [500, -60], {}),
+    http("Report failure", [500, 120], f"{API}/internal/errors", "POST",
+         '={{ JSON.stringify({workflow: "system_sweep_v1", step: "sweep", kind: "transient", '
+         'code: "E_SWEEP_FAILED", message: "housekeeping sweep failed"}) }}'),
+    node("Failure recorded", "n8n-nodes-base.noOp", 1, [760, 60], {}),
+    node("Could not record failure", "n8n-nodes-base.noOp", 1, [760, 220], {}),
+], conn([("Hourly", 0, "POST /system/sweep"),
+         ("POST /system/sweep", 0, "Swept"),
+         ("POST /system/sweep", 1, "Report failure"),
+         ("Report failure", 0, "Failure recorded"),
+         ("Report failure", 1, "Could not record failure")]))
+
 print("generated:", sorted(os.listdir(OUT)))

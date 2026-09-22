@@ -9,11 +9,13 @@ import { createLogger, getEnv, systemClock, EnvError } from '@sce/utils';
 import { isoWeekKey, type ServiceContext } from '@sce/core';
 import { runWorker, scheduleRecurring, type JobHandler } from './runtime.js';
 import { collectAnalyticsJob } from './jobs/collect-analytics.js';
+import { sweepJob } from './jobs/sweep.js';
 import { weeklyReportJob } from './jobs/weekly-report.js';
 
 const HANDLERS: Record<string, JobHandler> = {
   collect_analytics: collectAnalyticsJob,
   weekly_report: weeklyReportJob,
+  system_sweep: sweepJob,
 };
 
 const main = async (): Promise<void> => {
@@ -51,6 +53,12 @@ const main = async (): Promise<void> => {
     const week = isoWeekKey(new Date(), env.TZ);
     const report = await scheduleRecurring(ctx, { jobType: 'weekly_report', periodKey: week });
     logger.info({ ...report, period: week }, 'scheduled weekly report');
+
+    // Housekeeping runs every hour: confirm due publications, release abandoned work, dead-letter
+    // anything past its budget. The hour is the period key, so restarts do not pile jobs up.
+    const hour = new Date().toISOString().slice(0, 13);
+    const sweep = await scheduleRecurring(ctx, { jobType: 'system_sweep', periodKey: hour });
+    logger.info({ ...sweep, period: hour }, 'scheduled housekeeping sweep');
   }
 
   logger.info(

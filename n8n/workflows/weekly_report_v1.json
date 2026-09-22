@@ -1,0 +1,176 @@
+{
+  "name": "weekly_report_v1",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 8 * * 1"
+            }
+          ]
+        }
+      },
+      "id": "ac6adabd-da7c-896c-184b-cac39fbbc302",
+      "name": "Mondays at 08:00",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        0,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.SCE_API_BASE_URL }}/reports/weekly",
+        "options": {
+          "timeout": 15000,
+          "response": {
+            "response": {
+              "neverError": false
+            }
+          }
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({deliver: true}) }}"
+      },
+      "id": "a182b573-a4e5-5275-7069-67197441cc8b",
+      "name": "POST /reports/weekly",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        240,
+        0
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000,
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {},
+      "id": "b26bb1e3-4d3c-64e3-fd1f-63b08bd822cd",
+      "name": "Report delivered",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        500,
+        -60
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.SCE_API_BASE_URL }}/internal/errors",
+        "options": {
+          "timeout": 15000,
+          "response": {
+            "response": {
+              "neverError": false
+            }
+          }
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({workflow: \"weekly_report_v1\", step: \"generate\", kind: \"transient\", code: \"E_WEEKLY_REPORT_FAILED\", message: \"weekly report generation or delivery failed\"}) }}"
+      },
+      "id": "3c67b18b-2d7b-c376-692a-307f3c271946",
+      "name": "Report failure",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        500,
+        120
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000,
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {},
+      "id": "f7318db8-52ee-1d64-10d7-7aa9ab9f9b7b",
+      "name": "Failure recorded",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        760,
+        60
+      ]
+    },
+    {
+      "parameters": {},
+      "id": "ff39a846-f650-2b1f-b4c2-ba65a3fe4469",
+      "name": "Could not record failure",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        760,
+        220
+      ]
+    }
+  ],
+  "connections": {
+    "Mondays at 08:00": {
+      "main": [
+        [
+          {
+            "node": "POST /reports/weekly",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "POST /reports/weekly": {
+      "main": [
+        [
+          {
+            "node": "Report delivered",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Report failure",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Report failure": {
+      "main": [
+        [
+          {
+            "node": "Failure recorded",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Could not record failure",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "saveManualExecutions": true,
+    "callerPolicy": "workflowsFromSameOwner",
+    "errorWorkflow": "system_error_handler_v1"
+  },
+  "tags": [],
+  "meta": {
+    "templateId": "sce"
+  }
+}
