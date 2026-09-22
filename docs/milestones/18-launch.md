@@ -227,8 +227,8 @@ boundaries and nothing else, so the suite exercises production routing, SQL and 
    validator rejects anything else, so nothing is silently wrong.
 2. **The `v0.1.0` tag exists locally but is not on the remote.** The branch pushed fine;
    `git push origin v0.1.0` returns HTTP 403, so this session's credentials cover `refs/heads`
-   but not `refs/tags`. The annotated tag points at `d949406` and needs one command from a
-   machine with tag-push rights: `git push origin v0.1.0`.
+   but not `refs/tags`. The annotated tag points at this branch's head and needs one
+   command from a machine with tag-push rights: `git push origin v0.1.0`.
 3. **Docker Compose still has not been started here** (no Docker daemon). It is validated
    statically by `tests/infra/compose.test.ts`; the first `infra/scripts/start.sh` on a Docker host
    remains a verification step, and is on the launch checklist.
