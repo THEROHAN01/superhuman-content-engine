@@ -10,3 +10,4 @@ export * from './draft-validation.js';
 export * from './generate.js';
 export * from './quality-gate.js';
 export * from './approval.js';
+export * from './publish.js';
