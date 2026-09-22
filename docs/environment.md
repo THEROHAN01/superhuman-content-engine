@@ -62,15 +62,22 @@ start on invalid configuration - that is deliberate.
 
 ## Provider selection (all mock by default)
 
-| Variable              | Values                                      | Default   | Purpose                                                  |
-| --------------------- | ------------------------------------------- | --------- | -------------------------------------------------------- |
-| `LLM_PROVIDER`        | `mock` / `ollama` / `failing`               | `mock`    | generation backend                                       |
-| `RESEARCH_PROVIDER`   | `mock` / `searxng` / `disabled` / `failing` | `mock`    | evidence search                                          |
-| `PUBLISHING_PROVIDER` | `mock` / `postiz` / `failing`               | `mock`    | scheduling backend                                       |
-| `TELEGRAM_PROVIDER`   | `mock` / `telegram` / `failing`             | `mock`    | approval transport                                       |
-| `PUBLISH_MODE`        | `dry_run` / `live`                          | `dry_run` | `live` actually sends posts; never set it in development |
+| Variable              | Values                                                  | Default   | Purpose                                                  |
+| --------------------- | ------------------------------------------------------- | --------- | -------------------------------------------------------- |
+| `LLM_PROVIDER`        | `mock` / `ollama` / `failing`                           | `mock`    | generation backend                                       |
+| `RESEARCH_PROVIDER`   | `mock` / `fixture` / `searxng` / `disabled` / `failing` | `mock`    | evidence search                                          |
+| `PUBLISHING_PROVIDER` | `mock` / `postiz` / `failing`                           | `mock`    | scheduling backend                                       |
+| `TELEGRAM_PROVIDER`   | `mock` / `telegram` / `failing`                         | `mock`    | approval transport                                       |
+| `PUBLISH_MODE`        | `dry_run` / `live`                                      | `dry_run` | `live` actually sends posts; never set it in development |
 
 `failing` providers exist so error paths can be exercised in tests and drills.
+
+`RESEARCH_PROVIDER=fixture` serves a small hand-curated corpus of canonical references from
+`packages/adapters/src/research/fixture.ts`. It makes no network calls and claims no external API.
+It exists because `mock` results are deliberately synthetic and are blocked by the quality gate,
+which would otherwise make the end-to-end path undemonstrable without a search engine. It is
+**refused when `NODE_ENV=production`** - the API will not boot - and every source it stores carries
+`provider = 'fixture'`, so fixture evidence stays identifiable in the database forever.
 
 ## Credentials (only needed when the matching provider is not `mock`)
 

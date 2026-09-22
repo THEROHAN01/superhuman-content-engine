@@ -52,3 +52,44 @@ skipped (never faked) when it is absent. Compose files are validated statically 
 by the operator on a Docker-capable host.
 **Consequences.** Real constraint and idempotency verification is possible in CI and locally;
 compose start-up is verified separately and recorded honestly as such.
+
+## ADR-007 - A curated `fixture` research provider for demos and end-to-end tests
+
+**Context.** The `mock` research provider is deliberately synthetic: its hosts are RFC 2606
+reserved example domains and its results are marked `synthetic: true`, so the quality gate blocks
+any draft whose only evidence comes from it. That is the correct guardrail, but it also means the
+complete learning-to-analytics path cannot be demonstrated on a machine with no search engine -
+the path always stops at the gate.
+**Decision.** Add a third offline provider, `fixture`, serving a small hand-curated corpus of
+canonical documentation and standards links. It makes no network calls, claims no external API
+contract, stores `provider = 'fixture'` on every source it produces, and the environment validator
+refuses it when `NODE_ENV=production`.
+**Consequences.** `infra/scripts/demo.sh` and `tests/e2e/` can walk the whole path offline. Fixture
+evidence is permanently identifiable in the database and can never silently become production
+evidence. The corpus entries are curated references, not fetched search results; an operator who
+wants to treat them as genuine evidence for a specific claim must confirm them first.
+
+## ADR-008 - A stranded publication may be retried through the same claimed row
+
+**Context.** The first end-to-end failure drill exposed a dead end. After a transient provider
+outage a publication became `retry_pending`; the hourly sweep moved it back to `pending` "so the
+next publish run picks it up" - but `schedulePublication` returned _any_ already-claimed row
+without calling the provider, and nothing else ever did. The publication could never acquire an
+external id, so it could never be published or measured.
+**Decision.** A claimed row is still returned untouched once it has reached the provider (that is
+what makes a replay safe), but a row with no external id, in `pending` or `retry_pending`, and
+still inside its attempt budget is retried through the _same_ row and the _same_ idempotency key.
+**Consequences.** Recovery from a provider outage needs no manual database surgery, and a second
+post remains impossible: the provider sees the identical idempotency key. A row that has spent its
+attempt budget is left for the sweep to dead-letter rather than retried forever.
+
+## ADR-009 - `failed` is a recoverable state for a learning event
+
+**Context.** The same drill showed that a note whose processing failed because the model was
+unreachable was stranded permanently: `failed` had no outgoing transitions, so a retry could not
+move the event forward even once the model was back.
+**Decision.** `failed` is recoverable - processing may start again from `normalized`. An event that
+already finished is still never reopened by a late failure report.
+**Consequences.** A transient outage costs a retry rather than a lost note. Re-running cannot
+duplicate anything: a learning event has at most one atom, enforced by
+`content_atoms_learning_event_key`.

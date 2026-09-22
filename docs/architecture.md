@@ -87,6 +87,15 @@ items may be scheduled.
 Replays return the original result (same id, same status) rather than an error, so a retrying
 caller converges instead of looping.
 
+One deliberate exception: a publication that was claimed but never reached the provider - no
+external id, `pending` or `retry_pending`, still inside its attempt budget - is retried through the
+same row and the same idempotency key rather than returned untouched. Otherwise a provider outage
+would strand it forever, because nothing else ever calls the provider for an already-claimed slot.
+The provider still sees one idempotency key, so a second post remains impossible.
+
+The whole model is exercised end to end by `tests/e2e/duplicate-path.test.ts`, which runs the
+complete documented path twice and asserts the database is unchanged by the second pass.
+
 ## 5. Failure model
 
 - Adapters return `{ok:true,...} | {ok:false, kind:'transient'|'permanent', ...}`. Transient
@@ -94,7 +103,14 @@ caller converges instead of looping.
 - Exhausted retries write an `error_events` row and move the owning entity to a dead-letter status
   that the health endpoint and the weekly report surface.
 - A failed research or generation step is never recorded as a success: evidence status stays
-  `unsupported` / `needs_review`, and the quality gate treats missing evidence as a blocker.
+  `unsupported` / `needs_review` (or `research_failed`, which is explicitly _not_ "found nothing"),
+  and the quality gate treats missing evidence as a blocker.
+- Failure states are recoverable, not terminal. A learning event that failed because the model was
+  unreachable can be processed again once it is back; a publication stranded by a provider outage
+  is retried through its existing row. Recovery never erases the incident: the `error_events` row
+  stays, and the health endpoint keeps reporting it.
+- `tests/e2e/failure-recovery.test.ts` takes each external dependency away in turn and asserts both
+  halves: the failure is visible, and the system recovers without duplicating anything.
 
 ## 6. Security boundaries
 

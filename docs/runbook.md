@@ -70,10 +70,28 @@ n8n equivalent: create a workflow, restart, confirm it is still listed in the ed
 
 ## Troubleshooting
 
-| Symptom                                             | Likely cause                                                  | Action                                                                       |
-| --------------------------------------------------- | ------------------------------------------------------------- | ---------------------------------------------------------------------------- |
-| compose exits complaining about `POSTGRES_PASSWORD` | `infra/.env` missing or incomplete                            | copy `.env.example` and fill it                                              |
-| n8n restarts repeatedly                             | wrong `N8N_ENCRYPTION_KEY` for the existing volume            | restore the original key, or reset the n8n volume and re-import workflows    |
-| `pnpm db:migrate` cannot connect                    | `DATABASE_URL` points at the container hostname from the host | use `localhost:5432` from the host, `postgres:5432` from inside compose      |
-| ollama health check fails                           | model still downloading or insufficient memory                | `infra/scripts/logs.sh ollama`; keep `LLM_PROVIDER=mock` until it is healthy |
-| api unhealthy at boot                               | invalid environment configuration (by design)                 | read the validation error in `infra/scripts/logs.sh api`                     |
+| Symptom                                              | Likely cause                                                  | Action                                                                                |
+| ---------------------------------------------------- | ------------------------------------------------------------- | ------------------------------------------------------------------------------------- |
+| compose exits complaining about `POSTGRES_PASSWORD`  | `infra/.env` missing or incomplete                            | copy `.env.example` and fill it                                                       |
+| n8n restarts repeatedly                              | wrong `N8N_ENCRYPTION_KEY` for the existing volume            | restore the original key, or reset the n8n volume and re-import workflows             |
+| `pnpm db:migrate` cannot connect                     | `DATABASE_URL` points at the container hostname from the host | use `localhost:5432` from the host, `postgres:5432` from inside compose               |
+| ollama health check fails                            | model still downloading or insufficient memory                | `infra/scripts/logs.sh ollama`; keep `LLM_PROVIDER=mock` until it is healthy          |
+| api unhealthy at boot                                | invalid environment configuration (by design)                 | read the validation error in `infra/scripts/logs.sh api`                              |
+| api refuses to boot with `RESEARCH_PROVIDER=fixture` | `NODE_ENV=production`; the fixture corpus is demo data only   | use `searxng` (or `disabled`) in production                                           |
+| every draft is rejected with `SYNTHETIC_EVIDENCE`    | `RESEARCH_PROVIDER=mock` - the gate is working as designed    | run with `RESEARCH_PROVIDER=fixture` for a demo, or a real provider for real work     |
+| the demo script stops after the quality gate         | same cause as above                                           | `RESEARCH_PROVIDER=fixture pnpm dev:api`, then re-run `infra/scripts/demo.sh`         |
+| a publication sits in `retry_pending`                | the provider was unreachable                                  | re-`POST /content-items/:id/schedule` for the same slot, or wait for the hourly sweep |
+| a learning event sits in `failed`                    | the model was unreachable when it was processed               | `POST /learning-events/:id/process` again once it is back                             |
+
+## Demonstrating the whole system
+
+```bash
+RESEARCH_PROVIDER=fixture pnpm dev:api &
+infra/scripts/demo.sh                      # or: infra/scripts/demo.sh http://host:port
+infra/scripts/failure-drill.sh             # proves bad input and bad callers are refused
+```
+
+`demo.sh` walks one note from capture to weekly report, prints the id produced at every hop, and
+finishes by replaying the path to show nothing happens twice. It refuses to run unless the API
+reports `publish_mode: dry_run`. Re-running it against the same database is safe: it picks up the
+existing chain and says so rather than generating duplicates.
