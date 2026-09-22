@@ -54,8 +54,9 @@ The suite found two real defects, both in the recovery paths. Both are fixed, wi
 
 ## DEFECTS FOUND AND FIXED
 
-Both were found by the failure drill, not by reasoning about the code, and neither was covered by
-the existing tests.
+The first two were found by the failure drill rather than by reasoning about the code, and neither
+was covered by the existing tests. The third was found by the review pass over the fix for the
+first.
 
 **1. A publication stranded by a provider outage could never reach the provider again.**
 After a transient failure the row became `retry_pending`; the hourly sweep moved it to `pending`
@@ -77,6 +78,21 @@ duplicate anything because a learning event has at most one atom by unique index
 
 A third, smaller gap: a successful approval request left no `workflow_runs` row, so "the card
 never arrived" was not answerable from the database. It now records one like every other stage.
+
+**3. The retry recorded the wrong provider** - found by the post-milestone review, in the fix for
+defect 1. A publication claimed while `PUBLISHING_PROVIDER=failing` and then retried successfully
+against `mock` kept `provider = 'failing'` on the row, while the external id had been produced by
+`mock`. `(provider, external_id)` is unique, so the row both stated a falsehood and enforced
+uniqueness against the wrong pair. A successful publish now records the provider and dry-run flag
+that actually applied, with a regression test and a live drill:
+
+```
+# claimed against a failing provider
+ status        | attempts | provider | external_id
+ retry_pending |        1 | failing  |
+# retried against a working one, same row and same idempotency key
+ scheduled     |        2 | mock     | mock-post-1
+```
 
 ## FILES CREATED
 

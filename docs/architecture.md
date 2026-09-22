@@ -93,6 +93,11 @@ same row and the same idempotency key rather than returned untouched. Otherwise 
 would strand it forever, because nothing else ever calls the provider for an already-claimed slot.
 The provider still sees one idempotency key, so a second post remains impossible.
 
+Because a retry can be served by a _different_ provider than the one configured when the row was
+claimed, a successful publish records the provider and dry-run flag that actually applied. The
+alternative would attribute the external id to a service that did not produce it, and
+`(provider, external_id)` is unique - so the wrong pair would be the one enforced.
+
 The whole model is exercised end to end by `tests/e2e/duplicate-path.test.ts`, which runs the
 complete documented path twice and asserts the database is unchanged by the second pass.
 

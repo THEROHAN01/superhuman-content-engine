@@ -348,6 +348,34 @@ describeDb('publishing', () => {
     expect(rows[0]!.status).toBe('scheduled');
   });
 
+  it('records the provider that actually produced the external id, not the one that failed', async () => {
+    const item = await approvedItem();
+    await schedulePublication(ctx, item.id, {
+      publisher: createFailingPublishingAdapter(),
+      scheduledAt: SLOT,
+      attempts: 1,
+      sleep: async () => {},
+    });
+
+    const stranded = await publicationsRepo.listPublicationsForItem(db.db, item.id);
+    expect(stranded[0]).toMatchObject({ status: 'retry_pending', provider: 'failing' });
+
+    // The retry is served by a different provider than the one the row was claimed under.
+    // `(provider, external_id)` is unique, so attributing this id to `failing` would both record a
+    // falsehood and enforce uniqueness against the wrong pair.
+    const retry = await schedulePublication(ctx, item.id, { publisher, scheduledAt: SLOT });
+    expect(retry.ok).toBe(true);
+    if (!retry.ok) return;
+
+    const rows = await publicationsRepo.listPublicationsForItem(db.db, item.id);
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toMatchObject({
+      status: 'scheduled',
+      provider: publisher.name,
+      external_id: retry.value.publication.external_id,
+    });
+  });
+
   it('does not call the provider again once a slot has been published', async () => {
     const item = await approvedItem();
     const counted = countingPublisher(publisher);

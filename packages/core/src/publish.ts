@@ -176,6 +176,10 @@ export const schedulePublication = async (
       external_url: receipt.externalUrl,
       // Provider metadata is stored as returned by the adapter, which has already stripped secrets.
       provider_metadata: receipt.metadata,
+      // A retried row was claimed under whatever provider was configured then, which is not
+      // necessarily the one that just produced this external id. Record what actually happened.
+      provider: options.publisher.name,
+      dry_run: dryRun,
       last_error: '',
       incrementAttempts: true,
     });

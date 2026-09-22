@@ -88,6 +88,16 @@ export interface PublicationPatch {
   last_error?: string | null;
   provider_metadata?: Record<string, unknown> | null;
   incrementAttempts?: boolean;
+  /**
+   * The provider that actually served the call, and whether it was a dry run.
+   *
+   * These are set when the row is claimed, but a publication retried after an outage can be
+   * served by a different provider than the one configured when it was claimed. `(provider,
+   * external_id)` is unique, so recording the provider that did *not* produce the id would
+   * attribute the post to the wrong service and enforce uniqueness against the wrong pair.
+   */
+  provider?: string | null;
+  dry_run?: boolean | null;
 }
 
 export const setPublicationStatus = async (
@@ -104,6 +114,8 @@ export const setPublicationStatus = async (
        published_at = COALESCE($6, published_at),
        last_error = CASE WHEN $7::text IS NULL THEN last_error WHEN $7 = '' THEN NULL ELSE $7 END,
        provider_metadata = COALESCE($8::jsonb, provider_metadata),
+       provider = COALESCE($10, provider),
+       dry_run = COALESCE($11, dry_run),
        attempts = attempts + CASE WHEN $9 THEN 1 ELSE 0 END
      WHERE id = $1 AND status = ANY($2::text[])
      RETURNING ${COLUMNS}`,
@@ -117,6 +129,8 @@ export const setPublicationStatus = async (
       patch.last_error ?? null,
       patch.provider_metadata ? JSON.stringify(patch.provider_metadata) : null,
       patch.incrementAttempts === true,
+      patch.provider ?? null,
+      patch.dry_run ?? null,
     ],
   );
 
