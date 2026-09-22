@@ -10,4 +10,5 @@ export * as approvals from './repositories/approvals.js';
 export * as publications from './repositories/publications.js';
 export * as analytics from './repositories/analytics.js';
 export * as jobs from './repositories/jobs.js';
+export * as weeklyReports from './repositories/weekly-reports.js';
 export * from './testing.js';

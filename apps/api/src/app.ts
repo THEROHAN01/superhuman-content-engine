@@ -20,6 +20,7 @@ import { healthRoutes } from './routes/health.js';
 import { captureRoutes } from './routes/capture.js';
 import { pipelineRoutes } from './routes/pipeline.js';
 import { analyticsRoutes } from './routes/analytics.js';
+import { reportRoutes } from './routes/reports.js';
 import { githubRoutes } from './routes/github.js';
 import { publishRoutes } from './routes/publish.js';
 import { telegramRoutes } from './routes/telegram.js';
@@ -75,6 +76,7 @@ export const buildApp = async (
   publishRoutes(app, ctx, { publisher });
   githubRoutes(app, ctx);
   analyticsRoutes(app, ctx, { analytics });
+  reportRoutes(app, ctx, { telegram });
   internalRoutes(app, ctx);
 
   return app;

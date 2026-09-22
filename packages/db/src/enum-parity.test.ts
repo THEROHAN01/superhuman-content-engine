@@ -70,6 +70,7 @@ describe('zod enums match SQL CHECK constraints', () => {
       ENUMS.publication_status,
       ENUMS.job_status,
       ENUMS.workflow_run_status,
+      ENUMS.weekly_report_status,
     ]) {
       for (const value of list) {
         expect(statusValues.has(value), `SQL status checks are missing '${value}'`).toBe(true);
@@ -86,6 +87,7 @@ describe('zod enums match SQL CHECK constraints', () => {
       ...ENUMS.publication_status,
       ...ENUMS.job_status,
       ...ENUMS.workflow_run_status,
+      ...ENUMS.weekly_report_status,
     ]);
     for (const value of checks.get('status') ?? []) {
       expect(known.has(value), `SQL allows unknown status '${value}'`).toBe(true);

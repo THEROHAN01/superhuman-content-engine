@@ -6,12 +6,14 @@
  */
 import { createPool } from '@sce/db';
 import { createLogger, getEnv, systemClock, EnvError } from '@sce/utils';
-import type { ServiceContext } from '@sce/core';
+import { isoWeekKey, type ServiceContext } from '@sce/core';
 import { runWorker, scheduleRecurring, type JobHandler } from './runtime.js';
 import { collectAnalyticsJob } from './jobs/collect-analytics.js';
+import { weeklyReportJob } from './jobs/weekly-report.js';
 
 const HANDLERS: Record<string, JobHandler> = {
   collect_analytics: collectAnalyticsJob,
+  weekly_report: weeklyReportJob,
 };
 
 const main = async (): Promise<void> => {
@@ -44,6 +46,11 @@ const main = async (): Promise<void> => {
       payload: { window: '24h', collected_for: today },
     });
     logger.info({ ...scheduled, period: today }, 'scheduled analytics collection');
+
+    // One report per ISO week; the period key makes repeated starts harmless.
+    const week = isoWeekKey(new Date(), env.TZ);
+    const report = await scheduleRecurring(ctx, { jobType: 'weekly_report', periodKey: week });
+    logger.info({ ...report, period: week }, 'scheduled weekly report');
   }
 
   logger.info(

@@ -13,3 +13,4 @@ export * from './approval.js';
 export * from './publish.js';
 export * from './github-opportunity.js';
 export * from './analytics.js';
+export * from './weekly-report.js';

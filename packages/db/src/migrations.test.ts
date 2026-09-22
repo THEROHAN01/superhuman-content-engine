@@ -31,6 +31,7 @@ describeDb('migrations against a real database', () => {
       'schema_migrations',
       'source_documents',
       'webhook_deliveries',
+      'weekly_reports',
       'workflow_runs',
     ]);
   });
@@ -70,6 +71,7 @@ describeDb('migrations against a real database', () => {
       'analytics_events_collection_key',
       'jobs_active_dedupe_key',
       'webhook_deliveries_provider_delivery_key',
+      'weekly_reports_period_key',
     ]) {
       expect(indexes, `missing index ${expected}`).toContain(expected);
     }

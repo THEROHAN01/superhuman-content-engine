@@ -188,4 +188,5 @@ export const ENUMS = {
   job_status: JOB_STATUSES,
   workflow_run_status: WORKFLOW_RUN_STATUSES,
   failure_kind: FAILURE_KINDS,
+  weekly_report_status: ['generated', 'delivered', 'failed'],
 } as const satisfies Record<string, readonly string[]>;
