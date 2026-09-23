@@ -46,6 +46,17 @@ show "database" "$(printf '%s' "$ready" | jqf "['checks']['database']['ok']")"
 [ "$(printf '%s' "$ready" | jqf "['config']['publish_mode']")" = "dry_run" ] ||
   die "PUBLISH_MODE is not dry_run - refusing to run a demo that could publish"
 
+# The approval card needs somewhere to go. With the mock transport nothing leaves the process, so
+# a placeholder chat is fine and the demo works with no Telegram configuration at all. With a real
+# bot, guessing a chat id would send a message to a stranger - so ask for one instead.
+TELEGRAM=$(printf '%s' "$ready" | jqf "['config']['telegram_provider']")
+CHAT="${TELEGRAM_CHAT_ID:-}"
+if [ -z "$CHAT" ]; then
+  [ "$TELEGRAM" = "mock" ] || die "TELEGRAM_PROVIDER=$TELEGRAM needs TELEGRAM_CHAT_ID to send the approval card"
+  CHAT="demo-chat"
+fi
+show "telegram" "$TELEGRAM (chat $CHAT)"
+
 step "1-4. capture, normalize, classify, deduplicate"
 captured=$(post /capture "$(python3 -c 'import json,sys;print(json.dumps({"text":sys.argv[1],"source":"manual","external_id":sys.argv[2]}))' "$NOTE" "$EXTERNAL_ID")")
 LE=$(printf '%s' "$captured" | jqf "['id']")
@@ -147,8 +158,10 @@ else
   REJECT_ID=$(echo $ACTIONABLE | awk '{print $2}')
   REGEN_ID=$(echo $ACTIONABLE | awk '{print $3}')
   for item in $APPROVE_ID $REJECT_ID $REGEN_ID; do
-    card=$(post "/content-items/$item/request-approval")
-    show "card sent" "$item -> $(printf '%s' "$card" | jqf "['status']")"
+    card=$(post "/content-items/$item/request-approval" "{\"chat_id\":\"$CHAT\"}")
+    state=$(printf '%s' "$card" | jqf "['status']")
+    [ -n "$state" ] || die "could not send the approval card: $card"
+    show "card sent" "$item -> $state"
   done
   show "approve" "$(post "/content-items/$APPROVE_ID/decide" '{"action":"approve","decided_by":"demo"}' | jqf "['status']")"
   [ -n "$REJECT_ID" ] && show "reject" "$(post "/content-items/$REJECT_ID/decide" '{"action":"reject","decided_by":"demo","note":"off-voice"}' | jqf "['status']")"
