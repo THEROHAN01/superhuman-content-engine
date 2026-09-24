@@ -29,16 +29,22 @@ Requirements: **Node 22**, **pnpm 10**, **PostgreSQL 16**. (Redis, n8n and Ollam
 for the full Docker stack; none of them are needed to run the engine or its tests.)
 
 ```bash
-git clone <this repo> && cd superhuman-content-engine
+git clone https://github.com/THEROHAN01/superhuman-content-engine.git
+cd superhuman-content-engine
 pnpm install
 
 createdb sce_dev
-export DATABASE_URL=postgres://sce:sce@localhost:5432/sce_dev
-pnpm db:migrate                                    # forward-only SQL, safe to re-run
+export DATABASE_URL=postgres:///sce_dev             # local socket, your own OS user
+pnpm db:migrate                                     # forward-only SQL, safe to re-run
 
-RESEARCH_PROVIDER=fixture pnpm dev:api &           # http://localhost:8080
-infra/scripts/demo.sh                              # the whole engine, one note, ~20 seconds
+RESEARCH_PROVIDER=fixture pnpm dev:api &            # http://localhost:8080
+infra/scripts/demo.sh                               # the whole engine, one note, ~20 seconds
 ```
+
+Any libpq connection string works - `postgres://user:password@host:5432/sce_dev` if your Postgres
+wants a password, `postgres:///sce_dev` if your OS user is already a superuser (the usual Homebrew
+and Postgres.app setup). If you would rather not install Postgres at all, the Docker stack below
+brings up its own with the credentials from `infra/.env`.
 
 `demo.sh` walks a note from capture to weekly report, prints the id produced at every hop, and
 finishes by replaying the path to show that nothing happens twice. It publishes nothing: every
@@ -48,9 +54,9 @@ To run the test suite the way CI does, add a test database - DB-backed tests are
 than faked when it is missing, so a green run without one is not a full run:
 
 ```bash
-createdb sce_test                                  # the name must end in _test
-export TEST_DATABASE_URL=postgres://sce:sce@localhost:5432/sce_test
-pnpm verify                                        # typecheck + lint + 629 tests
+createdb sce_test                                   # the name must end in _test
+export TEST_DATABASE_URL=postgres:///sce_test
+pnpm verify                                         # typecheck + lint + 629 tests
 ```
 
 ## Step by step: one note, end to end
